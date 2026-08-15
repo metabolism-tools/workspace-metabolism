@@ -4,19 +4,20 @@
 >
 > 顺序：GitHub（英文公告）→ X（英文）→ 知乎（中文）→ 小红书（中文）
 > 原则：先发英文，再发中文；所有外链都以 GitHub 仓库为准；全文不出现私人项目内容。
+> 进度：✅ v0.1.2 已发布到 PyPI 与 GitHub Release（2026-08-15）；三份平台文案均为最终版。待办：X → 知乎 → 小红书；以及 GitHub 讨论区公告。
 
 ## 时间建议
 
 | 步骤 | 平台 | 建议时间（北京时间） | 用时 |
 | --- | --- | --- | --- |
-| 1 | GitHub（release 说明 + 讨论区公告） | 发英文前任意时间，建议周六/周日 | 约 15 分钟 |
+| 1 | GitHub（release 说明 + 讨论区公告） | ✅ release 已完成（2026-08-15）；讨论区公告待做 | 约 15 分钟 |
 | 2 | X | 周二 2026-08-18，21:00–24:00（= 美东 9:00–12:00） | 约 5 分钟 |
 | 3 | 知乎 | 周三 2026-08-19，20:00–22:00 | 约 20 分钟 |
 | 4 | 小红书 | 周四 2026-08-20，12:00–13:00 或 19:00–21:00 | 约 10 分钟 |
 
 ## 每步做什么
 
-1. **GitHub**：先把 v0.1.1 的 release 说明更新成完整版，再打开 Discussions，发一条置顶公告。文案和网页操作步骤见 [github-announcement.md](github-announcement.md)。
+1. **GitHub**：✅ v0.1.2 的 release 说明已发布（2026-08-15）。剩余：打开 Discussions 并发一条置顶公告（操作步骤见 [github-announcement.md](github-announcement.md)）。
 2. **X**：发 1 条主帖 + 3 条跟帖（或合并成 1 条），链接指向 GitHub 仓库。文案见 [x-post.md](x-post.md)。
 3. **知乎**：发完整中文文章，粘贴 [zhihu-post.md](zhihu-post.md) 的内容，末尾带仓库链接。
 4. **小红书**：发短笔记，粘贴 [xiaohongshu-post.md](xiaohongshu-post.md) 的内容，配 3–6 张图。小红书不能放外链，正文里写「GitHub 搜索 workspace-metabolism」。
@@ -29,6 +30,7 @@
 
 ## 发布前通用检查
 
+- [x] v0.1.2 已发布到 PyPI 与 GitHub Release（2026-08-15）
 - [ ] 打开 https://github.com/metabolism-tools/workspace-metabolism 确认能访问
 - [ ] 复制文案前先试一下链接
 - [ ] 发布后 1 小时内回复所有评论
