@@ -42,7 +42,7 @@ v0.1.2 的英文 release 说明已整理好，见
 
 ## 三、发置顶公告
 
-✅ 已发布：https://github.com/metabolism-tools/workspace-metabolism/discussions/3（2026-08-15，正文为 v0.1.2 完整版）。
+✅ 已发布：https://github.com/metabolism-tools/workspace-metabolism/discussions/3（2026-08-15；正文已更新为 v0.2.0 版）。
 置顶需要网页操作（API 不支持置顶）：打开公告 → 正文右下角 **…** → **Pin discussion**。
 
 网页操作：
@@ -66,12 +66,15 @@ v0.1.2 的英文 release 说明已整理好，见
 >
 > **The proof:** a reproducible 30-loop experiment ships with the repo (`examples/metabolism_benchmark.py`). After 30 loops, a governed workspace holds 2 active files and 0 expired candidates; an ungoverned one holds 242 files and 240 candidates — and every governed byproduct stays recoverable via `wm rollback`.
 >
+> **v0.2.0 adds:** `wm init` (scaffold `metabolism.json` like `git init`), policy auto-discovery, a JSON Schema, `wm explain <path>`, a 0-100 workspace health score with a shields.io badge, and `wm mcp` — a zero-dependency MCP server so agents can run micro-metabolism themselves. The end-of-loop ritual is automated in `examples/micro_metabolism.py`, and a CI health gate template ships in `examples/ci-audit.yml`.
+>
 > We propose **Agentic Metabolic Engineering** as a framing — the L5 layer of the agentic stack, the last mile of every loop. This is a proposal, not a claim of coining the words: "information metabolism" dates to the 1960s, and "metabolic engineering" belongs to synthetic biology.
 >
 > - [README](https://github.com/metabolism-tools/workspace-metabolism#readme)
 > - [Philosophy](https://github.com/metabolism-tools/workspace-metabolism/blob/main/docs/philosophy.md)
 > - [Narrative](https://github.com/metabolism-tools/workspace-metabolism/blob/main/docs/narrative.md)
+> - [Roadmap](https://github.com/metabolism-tools/workspace-metabolism/blob/main/ROADMAP.md)
 > - [PyPI](https://pypi.org/project/workspace-metabolism/)
-> - [v0.1.2 release](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.1.2)
+> - [v0.2.0 release](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.2.0)
 >
-> v0.1.2 is early days; the policy schema may shift before v1.0. We'd love early adopters to break it on weird directory structures.
+> v0.2.0 is early days; the policy schema may shift before v1.0. We'd love early adopters to break it on weird directory structures.
