@@ -68,6 +68,16 @@ AI:
 | L4 | Loop Engineering | How does the agent run itself without us? |
 | L5 | Agentic Metabolic Engineering | What happens to the byproducts after each loop? |
 
+```mermaid
+flowchart TD
+    L1["L1 Prompt Engineering<br/>What do we say to the model?"]
+    L2["L2 Context Engineering<br/>What do we give the model to read?"]
+    L3["L3 Harness Engineering<br/>How do we make the agent reliable?"]
+    L4["L4 Loop Engineering<br/>How does the agent run itself?"]
+    L5["L5 Agentic Metabolic Engineering<br/>What happens to the byproducts?"]
+    L1 --> L2 --> L3 --> L4 --> L5
+```
+
 Each layer abstracts away a piece of human labor: Prompt abstracts the words,
 Context the information, Harness the runtime constraints, Loop the
 orchestration. Agentic Metabolic Engineering abstracts the **workspace
@@ -216,12 +226,16 @@ four groups — the same role a credit score plays for debt.
 
 ## 9. The roadmap
 
-- **Today**: CLI + policy file + scheduled runs (Windows Task Scheduler, cron)
-- **Near term**: agent-native integration — `wm audit --json` is the first
-  contract; an MCP server that lets agents run micro-metabolism themselves is
-  the next step
-- **Mid term**: a workspace health score that combines the four metric groups
-  into one number
+- **Shipped**: CLI + policy file + scheduled runs; `wm init`; auto-discovery
+  of `metabolism.json`; policy JSON Schema; `wm explain`; `wm health` (0-100);
+  a zero-dependency MCP server (`wm mcp`); micro-metabolism and CI templates;
+  the 30-loop proof benchmark.
+- **Near term**: ready-made session-end hooks for Claude Code and Codex;
+  benchmark v2 (multi-profile workspaces, 100-loop runs); a hosted health
+  badge endpoint; adoptions list.
+- **Mid term**: policy schema v2 with review workflow (owner / intent /
+  review_after already in v1 as optional fields); policy diffs and approval
+  history in the journal.
 - **Far term**: metabolism policy as a standard project artifact, as common as
   `.gitignore`
 

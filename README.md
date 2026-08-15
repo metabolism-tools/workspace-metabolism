@@ -7,6 +7,8 @@ verify — every step leaves a hash-chained audit trail. Python 3.11+,
 
 ![Terminal preview](docs/terminal-preview.png)
 
+![workspace health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmetabolism-tools%2Fworkspace-metabolism%2Fmain%2Fdocs%2Fhealth.json)
+
 ## Why this exists
 
 Most disk tools either show you space (`ncdu`, `duf`) or delete things
@@ -52,15 +54,22 @@ python examples/demo.py
 Point the tool at your own workspace:
 
 ```bash
-wm --root /path/to/workspace --registry examples/registry.example.json status
-wm --root /path/to/workspace --registry examples/registry.example.json audit
-wm --root /path/to/workspace --registry examples/registry.example.json clean --grades G4 --yes
-wm --root /path/to/workspace --registry examples/registry.example.json rollback <run_id>
+cd /path/to/workspace
+wm init            # scaffold metabolism.json (like `git init`)
+wm audit           # first checkup (read-only)
+wm health          # workspace health score (0-100)
+wm explain logs    # why a path is graded the way it is
+wm clean --grades G4 --yes   # recycle expired G4 items (dry-run without --yes)
+wm rollback <run_id>
 ```
 
-Copy `examples/registry.example.json`, edit the paths and retention rules, and
-register every directory you want to manage. Nothing is cleaned unless it is
-registered in the policy file.
+`wm init` scans your workspace and registers common directories (source and
+docs as G2 keep, logs/tmp/cache as G4 auto, archive/staging as G3 approve).
+Edit `metabolism.json` and commit it like any source file. The tool
+auto-discovers `metabolism.json` (or `.wm.json`) in the workspace root, so
+`--registry` is optional. Nothing is cleaned unless it is registered in the
+policy file. Advanced users can start from
+[examples/registry.example.json](examples/registry.example.json).
 
 ## Commands
 
@@ -73,6 +82,10 @@ registered in the policy file.
 | `purge --older-than 30` | Delete expired recycle batches (the only real delete) |
 | `verify` | Check the journal hash chain and run manifests |
 | `status` | Overview of workspace, recycle area and pending candidates |
+| `init` | Scaffold a `metabolism.json` policy file (like `git init`) |
+| `explain <path>` | Show what the policy says about a path (the nutrition label) |
+| `health` | Workspace health score (0-100), with `--json` and `--badge` output |
+| `mcp` | MCP stdio server so agents can run micro-metabolism themselves |
 
 Global flags:
 
@@ -80,7 +93,7 @@ Global flags:
 | --- | --- |
 | `--root PATH` | Workspace to govern (default: current directory) |
 | `--state-dir PATH` | Journal / recycle / runs / reports (default: system cache directory, **outside** the workspace) |
-| `--registry PATH` | Policy registry JSON (required for `audit` / `clean` / `status`) |
+| `--registry PATH` | Policy JSON (optional; auto-discovers `metabolism.json` / `.wm.json`) |
 | `--protected-window HH:MM-HH:MM` | Weekday window; entries marked `protected` are skipped while active |
 
 The default state directory lives outside the workspace on purpose — a
@@ -118,6 +131,38 @@ control.
 | `protected` | Optional: skip while a `--protected-window` is active |
 | `remote_authoritative` | Optional: display marker for data with a remote source of truth |
 | `category` | Optional free-form label for your own classification |
+| `owner` | Optional: who is accountable for this rule |
+| `intent` | Optional: why this rule exists |
+| `review_after` | Optional: when this rule should be revisited |
+
+The policy format is versioned and validated against
+[schema/metabolism.schema.json](schema/metabolism.schema.json), so editors and
+agents can check your file before the tool does.
+
+## Health score
+
+`wm health` combines the audit summary into one number from 0 to 100: 25
+points for journal auditability, 25 for governance (unregistered paths, disk
+alerts), 35 for rot burden (expired candidates), and 15 for recycle
+readiness. Grades: A (90+), B (75+), C (60+), D (below).
+
+```bash
+wm health --json
+wm health --badge   # shields.io endpoint JSON for a README badge
+```
+
+The badge above is generated from [docs/health.json](docs/health.json). A CI
+template that fails when the score drops below a threshold is in
+[examples/ci-audit.yml](examples/ci-audit.yml).
+
+## Agents
+
+`wm mcp` runs a zero-dependency MCP stdio server. Agents can audit, explain,
+and run dry-run clean plans themselves; `clean` only executes when the caller
+explicitly passes `execute=true`, and the policy file still decides
+everything. The end-of-loop ritual is automated in
+[examples/micro_metabolism.py](examples/micro_metabolism.py) — wire it into a
+session-end hook so every loop ends with a checkup.
 
 ## Safety model
 
