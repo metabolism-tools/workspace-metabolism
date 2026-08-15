@@ -1,24 +1,16 @@
 # Launch drafts (Show HN / r/Python)
 
-## ACTION REQUIRED before posting: GitHub username
+## Identity decision (resolved 2026-08-15)
 
-Account `tongflau-dongzhu` was created on 2026-05-11 (project-specific, not a
-long-term personal handle), and `tongflau` is available on GitHub.
+The personal account `tongflau-dongzhu` is the unified identity of the
+"Dongzhu" research project and stays untouched. The public tool lives under a
+neutral organization instead:
 
-Two options:
+- Organization: `metabolism-tools`
+- Final repo URL: `https://github.com/metabolism-tools/workspace-metabolism`
 
-- **A. Rename the account to `tongflau`** (cleanest). Do it in
-  GitHub Account Settings (https://github.com/settings/admin). Side effects:
-  both repos change URL (old links redirect automatically); the local git
-  remotes of `workspace-metabolism` and the private project must be updated
-  (`git remote set-url origin <new-url>`).
-- **B. Keep the account, move the public repo to a neutral org**
-  (e.g. `metabolism-tools`) and transfer the repo there. Private project stays
-  untouched; public repo gets a clean, product-neutral owner.
-
-Decision: PENDING (do not post until resolved).
-
-All URLs below are placeholders and must be updated after the decision.
+The Dongzhu private project is not renamed, not moved, and not linked from the
+public repo.
 
 ---
 
@@ -58,7 +50,7 @@ Highlights:
 - Scheduling out of the box: Windows Task Scheduler + cron templates (placeholders only, no environment guessing)
 - Zero dependencies; tests run on Ubuntu / Windows / macOS (Python 3.11 & 3.12)
 
-Links: [repo](<REPO_URL>) · [README](<REPO_URL>#readme) · PyPI (coming)
+Links: [repo](https://github.com/metabolism-tools/workspace-metabolism) · [README](https://github.com/metabolism-tools/workspace-metabolism#readme) · PyPI (coming)
 
 **Launch-day notes**
 
@@ -95,7 +87,7 @@ It's early days (v0.1), so the policy schema might have minor tweaks before v1.0
 
 What would you add before trusting it with real files?
 
-Repo: <REPO_URL>
+Repo: https://github.com/metabolism-tools/workspace-metabolism
 
 ---
 
@@ -104,5 +96,6 @@ Repo: <REPO_URL>
 - [x] Fresh `git clone` + README quick start runs end-to-end (verified 2026-08-15)
 - [x] README contains a terminal screenshot (docs/terminal-preview.png, linked in README)
 - [x] `examples/registry.example.json` is valid JSON (validated)
-- [ ] Username decision made (ACTION REQUIRED above)
-- [ ] `<REPO_URL>` placeholders replaced with the final URL
+- [x] Identity decision made (Option B: neutral org `metabolism-tools`)
+- [x] Final URLs in place (metabolism-tools/workspace-metabolism)
+- [ ] Org created + repo transferred (blocked on org creation in browser)
