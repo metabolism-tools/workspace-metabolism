@@ -42,15 +42,18 @@ def now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _default_state_dir_str(os_name: str, environ: dict) -> str:
+    """Compute the default state directory as a plain string (testable on any OS)."""
+    if os_name == "nt":
+        base = environ.get("LOCALAPPDATA") or str(Path.home())
+        return str(Path(base) / "workspace-metabolism")
+    base = environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return str(Path(base) / "workspace-metabolism")
+
+
 def default_state_dir() -> Path:
     """System cache directory, kept outside the governed workspace on purpose."""
-    if os.name == "nt":
-        base = os.environ.get("LOCALAPPDATA")
-        base = Path(base) if base else Path.home()
-        return base / "workspace-metabolism"
-    base = os.environ.get("XDG_CACHE_HOME")
-    base = Path(base) if base else Path.home() / ".cache"
-    return base / "workspace-metabolism"
+    return Path(_default_state_dir_str(os.name, os.environ))
 
 
 def parse_window(spec: str | None) -> Optional[tuple[int, int]]:

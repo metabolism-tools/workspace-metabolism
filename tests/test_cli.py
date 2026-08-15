@@ -61,6 +61,47 @@ def test_cli_clean_dry_run_and_verify(tmp_path: Path):
     assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "verify"]) == 0
 
 
+def test_cli_clean_execute_and_rollback(tmp_path: Path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    _make_workspace(root)
+    reg = _registry(tmp_path / "registry.json")
+    state = tmp_path / "state"
+    assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "clean", "--grades", "G4", "--yes"]) == 0
+    assert not (root / "logs").exists()
+    runs = sorted((state / "runs").glob("clean-*.json"))
+    assert len(runs) == 1
+    run_id = runs[0].stem
+    assert main(["--root", str(root), "--state-dir", str(state), "rollback", run_id]) == 0
+    assert (root / "logs").exists()
+    assert (root / "logs" / "app0.log").exists()
+
+
+def test_cli_purge_end_to_end(tmp_path: Path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    _make_workspace(root)
+    reg = _registry(tmp_path / "registry.json")
+    state = tmp_path / "state"
+    assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "clean", "--grades", "G4", "--yes"]) == 0
+    old = datetime.now().timestamp() - 2 * 86400
+    for batch in (state / "recycle").iterdir():
+        os.utime(batch, (old, old))
+    assert main(["--root", str(root), "--state-dir", str(state), "purge", "--older-than", "0", "--yes"]) == 0
+    assert not any((state / "recycle").iterdir())
+
+
+def test_cli_protected_window_flag(tmp_path: Path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    _make_workspace(root)
+    reg = _registry(tmp_path / "registry.json")
+    state = tmp_path / "state"
+    # Invalid window spec must fail fast
+    with pytest.raises(SystemExit):
+        main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "--protected-window", "bad", "status"])
+
+
 def test_cli_requires_registry(tmp_path: Path):
     root = tmp_path / "ws"
     root.mkdir()
