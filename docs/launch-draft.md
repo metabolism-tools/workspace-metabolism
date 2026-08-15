@@ -2,15 +2,14 @@
 
 ## Identity decision (resolved 2026-08-15)
 
-The personal account `tongflau-dongzhu` is the unified identity of the
-"Dongzhu" research project and stays untouched. The public tool lives under a
-neutral organization instead:
+The personal account stays untouched and is not referenced here. The public
+tool lives under a neutral organization instead:
 
 - Organization: `metabolism-tools`
 - Final repo URL: `https://github.com/metabolism-tools/workspace-metabolism`
 
-The Dongzhu private project is not renamed, not moved, and not linked from the
-public repo.
+The private research project is not renamed, not moved, and not linked from
+the public repo.
 
 ---
 
