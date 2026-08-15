@@ -9,6 +9,8 @@ verify — every step leaves a hash-chained audit trail. Python 3.11+,
 
 ![workspace health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmetabolism-tools%2Fworkspace-metabolism%2Fmain%2Fdocs%2Fhealth.json)
 
+▶️ Watch the 60-second animated demo: [docs/demo-terminal.html](docs/demo-terminal.html)
+
 ## Why this exists
 
 Most disk tools either show you space (`ncdu`, `duf`) or delete things

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>workspace-metabolism — 60-second demo</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --fg: #c9d1d9;
+    --dim: #8b949e;
+    --prompt: #3fb950;
+    --accent: #58a6ff;
+    --warn: #d29922;
+    --ok: #3fb950;
+    --border: #30363d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #010409;
+    color: var(--fg);
+    font-family: "Cascadia Code", "Consolas", "SF Mono", Menlo, monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .window {
+    width: min(860px, 100%);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .55);
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #161b22;
+    border-bottom: 1px solid var(--border);
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot.r { background: #ff5f57; }
+  .dot.y { background: #febc2e; }
+  .dot.g { background: #28c840; }
+  .bar .title { margin-left: 8px; color: var(--dim); font-size: 13px; }
+  .bar .spacer { flex: 1; }
+  .replay {
+    background: #21262d;
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .replay:hover { border-color: var(--accent); }
+  .screen {
+    padding: 18px 20px 22px;
+    min-height: 430px;
+    font-size: 14px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .prompt { color: var(--prompt); }
+  .dim { color: var(--dim); }
+  .accent { color: var(--accent); }
+  .ok { color: var(--ok); }
+  .warn { color: var(--warn); }
+  .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 15px;
+    background: var(--fg);
+    vertical-align: -2px;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="bar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="title">workspace-metabolism — 60-second demo</span>
+    <span class="spacer"></span>
+    <button class="replay" id="replay">replay</button>
+  </div>
+  <div class="screen" id="screen" aria-live="polite"></div>
+</div>
+<script>
+const LINE_SPEED = 16;      // ms per character while typing
+const PAUSE_AFTER = 320;    // ms pause after a full line
+const PAUSE_CMD = 620;      // ms pause after a command
+
+const script = [
+  [["prompt", "$ "], ["fg", "wm init"]],
+  [["ok", "policy created: metabolism.json"], ["dim", "   (like `git init`, but for file lifecycle)"]],
+  [["dim", "next steps:"]],
+  [["dim", "  wm audit      - first checkup (read-only)"]],
+  [["dim", "  wm health     - workspace health score (0-100)"]],
+  [["dim", "  wm explain <path> - why a path is graded the way it is"]],
+  [],
+  [["prompt", "$ "], ["fg", "wm audit"]],
+  [["fg", "audit done: 0 candidate(s), 0 unregistered"]],
+  [["dim", "report: ~/.cache/workspace-metabolism/reports/2026-08-15.md"]],
+  [["ok", "journal: 1 entries, chain OK"]],
+  [],
+  [["prompt", "$ "], ["fg", "wm health"]],
+  [["fg", "health: 95/100 (A)"]],
+  [["dim", "  auditability: 25/25   governance: 25/25"]],
+  [["dim", "  rot burden: 35/35   recycle readiness: 10/15"]],
+  [["dim", "  candidates: 0   unregistered: 0   journal chain: OK"]],
+  [],
+  [["prompt", "$ "], ["fg", "wm explain logs"]],
+  [["fg", "path: logs"]],
+  [["fg", "policy entry: logs  (G4 / auto)"]],
+  [["fg", "retention: 30 days"]],
+  [["fg", "intent: high-churn byproduct"]],
+  [["fg", "status: not a candidate right now"]],
+  [],
+  [["prompt", "$ "], ["fg", "wm clean --grades G4"]],
+  [["warn", "clean plan (dry-run): 0 item(s), 0.0 MB; blocked 0"]],
+  [["warn", "--yes not given; dry-run only, nothing was moved."]],
+  [],
+  [["prompt", "$ "], ["fg", "wm rollback clean-20260815-140735-123456"]],
+  [["ok", "rollback completed: 8/8"]],
+  [["ok", "  [restored] loops/run00_draft.py"]],
+  [["dim", "SHA-256 verified · byte-for-byte"]],
+];
+
+const screen = document.getElementById("screen");
+
+function span(cls, text) {
+  const el = document.createElement("span");
+  if (cls) el.className = cls;
+  el.textContent = text;
+  return el;
+}
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+async function typeLine(line, container) {
+  const parts = line.filter((part) => part[1]);
+  if (!parts.length) {
+    await sleep(PAUSE_AFTER);
+    return;
+  }
+  for (const [cls, text] of parts) {
+    for (let i = 0; i < text.length; i++) {
+      container.appendChild(span(cls, text[i]));
+      await sleep(LINE_SPEED);
+    }
+  }
+  await sleep(PAUSE_AFTER);
+}
+
+async function play() {
+  screen.textContent = "";
+  const cursor = span("cursor", "");
+  screen.appendChild(cursor);
+  await sleep(300);
+  for (const line of script) {
+    if (cursor.parentNode) cursor.remove();
+    const row = document.createElement("div");
+    screen.appendChild(row);
+    await typeLine(line, row);
+    screen.appendChild(cursor);
+    if (line.length && line[0][1].startsWith("$ ")) await sleep(PAUSE_CMD);
+  }
+  cursor.remove();
+  screen.appendChild(span("dim", "\n\nworkspace alive. loops keep running. "));
+  screen.appendChild(span("ok", "✓"));
+}
+
+document.getElementById("replay").addEventListener("click", play);
+play();
+</script>
+</body>
+</html>
