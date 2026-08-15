@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -66,6 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_audit = sub.add_parser("audit", help="read-only health check; writes a report")
     p_audit.add_argument("--dupes", action="store_true", help="also scan for possible duplicates")
     p_audit.add_argument("--auto", action="store_true", help="mark the run as scheduled")
+    p_audit.add_argument("--json", action="store_true", help="print the report as JSON (for agent integration)")
 
     p_clean = sub.add_parser("clean", help="clean by grade (moves to recycle area first)")
     p_clean.add_argument("--grades", required=True, help="comma-separated grades, e.g. G4 or G3,G4")
@@ -115,8 +117,11 @@ def main(argv: list[str] | None = None) -> int:
             dupes=args.dupes,
             operator=operator,
         )
-        print(f"audit done: {len(report['candidates'])} candidate(s), {len(report['unregistered'])} unregistered")
-        print(f"report: {report_path}")
+        if getattr(args, "json", False):
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+        else:
+            print(f"audit done: {len(report['candidates'])} candidate(s), {len(report['unregistered'])} unregistered")
+            print(f"report: {report_path}")
     elif args.command == "clean":
         grades = {g.strip().upper() for g in args.grades.split(",") if g.strip().upper() in {"G1", "G2", "G3", "G4"}}
         if not grades:

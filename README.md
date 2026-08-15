@@ -25,26 +25,12 @@ allows — nothing more.
 - Scheduled runs are supported out of the box on Windows (Task Scheduler) and
   Linux/macOS (cron) via templates in `examples/`
 
-## Philosophy: workspace metabolism
+## 🧬 Philosophy
 
-In the era of vibe coding and agentic loops, a workspace is a living system:
-AI assistants continuously produce drafts, temporary patches, abandoned
-refactors and test artifacts. Deleting them permanently (`rm -rf`) throws away
-history that a future loop might need; ignoring them lets the workspace rot.
-
-Inspired by biological metabolism, `workspace-metabolism` treats those
-byproducts as matter that can be **digested instead of burned**:
-
-- **Catabolism** — `wm audit` / `wm clean`: break down expired matter into
-  candidates, then move it to the recycle area (never a direct delete)
-- **Verification** — `wm verify`: check the integrity of the metabolic trace
-  (hash-chained journal)
-- **Anabolism** — `wm rollback`: reabsorb valuable matter back into the active
-  workspace
-
-Cleanup is the means; metabolism is the frame. The tool answers not just "what
-should be deleted" but "what should be kept, recycled, or reactivated". See
-[docs/philosophy.md](docs/philosophy.md) for the full write-up.
+`workspace-metabolism` treats your AI-generated workspace as a living system,
+inspired by biological metabolism: audit → clean → verify → rollback, with
+recyclable cleanup and a hash-chained audit trail. Cleanup is the means;
+metabolism is the frame. Full write-up: [docs/philosophy.md](docs/philosophy.md).
 
 ## Quick start
 

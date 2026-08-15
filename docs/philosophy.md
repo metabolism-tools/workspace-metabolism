@@ -1,4 +1,4 @@
-# Metabolism Engineering: a philosophy for AI workspaces
+# Metabolic Engineering: a philosophy for AI workspaces
 
 Status: proposal, 2026-08-15. This document proposes a framing — it does not
 claim to have coined the words. The biological metaphor has precedents (for
@@ -35,7 +35,7 @@ draft outputs, one-off experiments. Versioning every one of them is too heavy.
 
 ## 3. The four phases
 
-Metabolism Engineering is not "delete garbage". It is a digestion system for
+Metabolic Engineering is not "delete garbage". It is a digestion system for
 the workspace, defined by four phases that map directly to `wm` commands:
 
 | Phase | Tool | What it means in an AI workspace |
@@ -50,13 +50,16 @@ the workspace, defined by four phases that map directly to `wm` commands:
 - **Harness Engineering** designs the runtime environment that constrains an
   agent.
 - **Loop Engineering** designs the plan → execute → observe → reflect cycle.
-- **Metabolism Engineering** answers what happens to the byproducts each loop
+- **Metabolic Engineering** answers what happens to the byproducts each loop
   leaves behind — the last mile of every loop.
 
 Proposal: at the end of each loop (after observation, before the next plan), a
 **micro-metabolism** step asks: "The files just produced — keep, archive,
-recycle, or leave for tomorrow's digestion?" The tool's scheduled `audit`
-(daily) and `clean` (weekly) are the mechanical form of that question.
+recycle, or leave for tomorrow's digestion?" In practice, this can be a wrapper
+script around `wm audit --json` that an agent calls before its next planning
+phase, making the tool a native part of the loop's observation step. The
+scheduled `audit` (daily) and `clean` (weekly) runs are the unattended form of
+the same question.
 
 ## 5. How this differs from existing cleanup tools
 
@@ -94,7 +97,7 @@ Git versions tracked source. Workspace byproducts are mostly untracked,
 high-churn and non-code. This tool governs them without forcing a commit
 discipline onto every temporary file.
 
-**"Is 'Metabolism Engineering' an original term?"**
+**"Is 'Metabolic Engineering' an original term?"**
 
 Honest answer: the metaphor is not new ("information metabolism" dates to the
 1960s; "metabolic engineering" is an established bioengineering discipline).
@@ -107,3 +110,7 @@ the words.
 This document is the philosophy; the tool is the practice. The repository is
 MIT-licensed so the framing and the implementation can be reused, criticized
 and improved independently.
+
+If you disagree with the framing, or if you have a better metaphor, please open
+an Issue. The goal of this document is not to be right, but to start a
+conversation about what happens to the byproducts of our new coding habits.

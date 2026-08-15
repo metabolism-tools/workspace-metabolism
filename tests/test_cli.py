@@ -49,6 +49,18 @@ def test_cli_status_and_audit(tmp_path: Path, capsys):
     assert (state / "journal.jsonl").exists()
 
 
+def test_cli_audit_json(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    _make_workspace(root)
+    reg = _registry(tmp_path / "registry.json")
+    state = tmp_path / "state"
+    assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "audit", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert "candidates" in data
+    assert data["workspace"]["files"] > 0
+
+
 def test_cli_clean_dry_run_and_verify(tmp_path: Path):
     root = tmp_path / "ws"
     root.mkdir()
