@@ -59,6 +59,9 @@ def test_cli_audit_json(tmp_path: Path, capsys):
     data = json.loads(capsys.readouterr().out)
     assert "candidates" in data
     assert data["workspace"]["files"] > 0
+    assert "summary" in data
+    assert data["summary"]["journal_entries"] >= 1
+    assert data["summary"]["journal_chain_ok"] is True
 
 
 def test_cli_clean_dry_run_and_verify(tmp_path: Path):

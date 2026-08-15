@@ -116,6 +116,21 @@ def test_audit_tracks_growth(env, tmp_path: Path):
     assert report["growth_mb_since_last_audit"] > 0
 
 
+def test_audit_summary_includes_journal_and_recycle(env, tmp_path: Path):
+    root, state = env
+    make_old_dir(root, "cache_g4")
+    reg = base_registry(tmp_path)
+    report, _ = m.audit(root, reg, state)
+    s = report["summary"]
+    assert s["journal_entries"] >= 1
+    assert s["journal_chain_ok"] is True
+    assert s["candidates"] >= 1
+    assert s["recycle_files"] == 0
+    m.clean(root, reg, state, {"G4"}, yes=True)
+    report2, _ = m.audit(root, reg, state)
+    assert report2["summary"]["recycle_files"] > 0
+
+
 def test_clean_moves_to_recycle_and_rollback_restores(env, tmp_path: Path):
     root, state = env
     src = make_old_dir(root, "cache_g4")

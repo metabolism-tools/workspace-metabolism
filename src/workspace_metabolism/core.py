@@ -509,16 +509,6 @@ def audit(
         "registry_path": reg_rel,
     }
 
-    reports_dir = state_dir / "reports"
-    reports_dir.mkdir(parents=True, exist_ok=True)
-    report_path = reports_dir / f"{datetime.now().strftime('%Y-%m-%d')}.md"
-    report_path.write_text(render_report(report, root), encoding="utf-8")
-
-    runs_dir = state_dir / "runs"
-    runs_dir.mkdir(parents=True, exist_ok=True)
-    json_path = runs_dir / f"{report['run_id']}.json"
-    json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-
     journal_append(
         state_dir,
         "audit",
@@ -533,6 +523,36 @@ def audit(
         disk_alert=disk_alert,
         growth_mb=growth_mb,
     )
+
+    journal_state = verify_journal(state_dir)
+    recycle_files, recycle_size = recycle_stats(state_dir)
+    g3_mb = sum(c["size"] for c in candidates if c["grade"] == "G3") / 1024 / 1024
+    g4_mb = sum(c["size"] for c in candidates if c["grade"] == "G4") / 1024 / 1024
+    report["summary"] = {
+        "files": total_files,
+        "size_mb": round(total_size / 1024 / 1024, 1),
+        "growth_mb": growth_mb,
+        "candidates": len(candidates),
+        "candidates_g4_mb": round(g4_mb, 1),
+        "candidates_g3_mb": round(g3_mb, 1),
+        "unregistered": len(unregistered),
+        "disk_alert": disk_alert,
+        "recycle_files": recycle_files,
+        "recycle_mb": round(recycle_size / 1024 / 1024, 1),
+        "recycle_ratio_pct": round(recycle_size / total_size * 100, 1) if total_size else 0.0,
+        "journal_entries": journal_state["entries"],
+        "journal_chain_ok": journal_state["chain_ok"],
+    }
+
+    reports_dir = state_dir / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_path = reports_dir / f"{datetime.now().strftime('%Y-%m-%d')}.md"
+    report_path.write_text(render_report(report, root), encoding="utf-8")
+
+    runs_dir = state_dir / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    json_path = runs_dir / f"{report['run_id']}.json"
+    json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     return report, report_path
 
 
@@ -550,6 +570,14 @@ def render_report(report: dict, root: Path) -> str:
     if growth is not None:
         lines.append(f"- vs last audit: {'growth' if growth >= 0 else 'shrink'} {abs(growth)} MB")
     lines.append(f"- registry: {report['registry_path']}")
+    summary = report.get("summary")
+    if summary:
+        chain = "OK" if summary["journal_chain_ok"] else "BROKEN"
+        lines.append(
+            f"- recycle: {summary['recycle_files']} files, {summary['recycle_mb']} MB "
+            f"({summary['recycle_ratio_pct']}% of workspace)"
+        )
+        lines.append(f"- journal: {summary['journal_entries']} entries, chain {chain}")
     lines.append("")
     lines.append("## Cleanable candidates (past retention)")
     lines.append("")
@@ -801,14 +829,7 @@ def status(root: Path, registry_path: Path, state_dir: Path) -> None:
     skip = (state_dir,) if state_dir.is_relative_to(root) else ()
     files, size = workspace_stats(root, skip_dirs=skip)
     print(f"workspace: {files} files, {size/1024/1024:.1f} MB")
-    recycle = state_dir / "recycle"
-    recycle_files = recycle_size = 0
-    if recycle.exists():
-        for batch in recycle.iterdir():
-            if batch.is_dir():
-                f, s, _ = dir_stats(batch)
-                recycle_files += f
-                recycle_size += s
+    recycle_files, recycle_size = recycle_stats(state_dir)
     print(
         f"recycle: {recycle_files} files, {recycle_size/1024/1024:.1f} MB "
         f"(retention {registry.get('defaults', {}).get('recycle_retention_days', 30)} days before purge)"
@@ -823,3 +844,16 @@ def status(root: Path, registry_path: Path, state_dir: Path) -> None:
     g4 = sum(c["size"] for c in candidates if c["grade"] == "G4")
     g3 = sum(c["size"] for c in candidates if c["grade"] == "G3")
     print(f"pending candidates: G4 {g4/1024/1024:.1f} MB, G3 {g3/1024/1024:.1f} MB")
+
+
+def recycle_stats(state_dir: Path) -> tuple[int, int]:
+    """Return (file count, total bytes) currently held in the recycle area."""
+    recycle = state_dir / "recycle"
+    files = size = 0
+    if recycle.exists():
+        for batch in recycle.iterdir():
+            if batch.is_dir():
+                f, s, _ = dir_stats(batch)
+                files += f
+                size += s
+    return files, size

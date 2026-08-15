@@ -32,7 +32,7 @@ inspired by biological metabolism: audit → clean → verify → rollback, with
 recyclable cleanup and a hash-chained audit trail. Cleanup is the means;
 metabolism is the frame. We call this framing **Agentic Metabolic Engineering**
 — managing the byproducts of agent-driven software workspaces. Full write-up:
-[docs/philosophy.md](docs/philosophy.md).
+[docs/philosophy.md](docs/philosophy.md) · [the story](docs/narrative.md).
 
 ## Quick start
 
