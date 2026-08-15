@@ -1,10 +1,3 @@
-# Release notes draft: workspace-metabolism v0.1.2 (English)
-
-Status: draft, prepared 2026-08-15. Paste into the GitHub release when the
-version is published to PyPI. Install: `pip install workspace-metabolism`.
-
----
-
 ## workspace-metabolism v0.1.2
 
 One policy file controls the whole lifecycle of files in an AI-driven
