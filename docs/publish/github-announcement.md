@@ -16,6 +16,8 @@ GitHub 上的 v0.1.0 和 v0.1.1 已经发布，这里补两件事：把 release 
 >
 > One policy file controls the whole lifecycle of files in an AI-driven workspace: classify, audit, clean (recyclable), rollback, and purge — every step leaves a hash-chained audit trail. Python 3.11+, zero dependencies, Windows / Linux / macOS.
 >
+> The one-liner: loops keep the agent running; metabolism keeps the workspace alive.
+>
 > What's in v0.1.1:
 >
 > - `wm audit --json` summary block: growth, recycle ratio, journal chain, governance (the measurement ritual in docs/narrative.md)
@@ -37,6 +39,12 @@ GitHub 上的 v0.1.0 和 v0.1.1 已经发布，这里补两件事：把 release 
 3. 回到仓库主页，顶部会出现 **Discussions** 标签
 
 （如果你不想自己点，我可以用命令行帮你开。）
+
+## 三、v0.1.2 的 release 说明（英文草稿）
+
+v0.1.2 的英文 release 说明已整理好，见
+[docs/publish/release-notes-v0.1.2.md](release-notes-v0.1.2.md)。
+发布到 PyPI 后，把其中的英文正文粘贴到 GitHub Releases 即可。
 
 ## 三、发置顶公告
 

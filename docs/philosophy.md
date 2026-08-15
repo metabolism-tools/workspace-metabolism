@@ -19,6 +19,9 @@ proposal is embodied by the `workspace-metabolism` tool.
 > blindly deleted, but digested, tracked, and potentially reabsorbed. It is
 > the last mile of every loop and the lifecycle layer of the agentic stack.
 
+Short handle: **Workspace Metabolism**. One-liner: **Loops keep the agent
+running; metabolism keeps the workspace alive.**
+
 ## 1. The problem: AI workspaces accumulate byproducts
 
 Vibe coding and agentic loops have changed what a workspace looks like:
@@ -77,6 +80,10 @@ orchestration. Agentic Metabolic Engineering abstracts the **workspace
 itself**: it treats the workspace not as an infinite sandbox, but as a living
 system with limited capacity that needs digestion, not just deletion.
 
+The same story reads as three acts: Prompt Engineering made the AI able to
+write, Harness and Loop Engineering made it able to keep writing, and Agentic
+Metabolic Engineering keeps the workspace able to survive the writing.
+
 - **Harness Engineering** designs the runtime environment that constrains an
   agent.
 - **Loop Engineering** designs the plan → execute → observe → reflect cycle.
@@ -95,6 +102,10 @@ script around `wm audit --json` that an agent calls before its next planning
 phase, making the tool a native part of the loop's observation step. The
 scheduled `audit` (daily) and `clean` (weekly) runs are the unattended form of
 the same question.
+
+The human role shifts accordingly: not janitor, but **policy author** — the
+person who decides what every path is worth (G1–G4), how long byproducts rest,
+and what the workspace keeps, digests, and reabsorbs.
 
 ## 5. How this differs from existing cleanup tools
 

@@ -8,6 +8,8 @@
 
 > AI writes code faster than we can clean up after it.
 >
+> Loops keep the agent running; metabolism keeps the workspace alive.
+>
 > I built a zero-dep CLI that treats a workspace like a living system: audit → recycle → verify → rollback. One JSON policy file decides what every path is worth (G1–G4).
 >
 > Clean never deletes. Rollback is an exact undo.
@@ -36,7 +38,7 @@
 
 ## 方式 B：合并成 1 条
 
-> AI writes code faster than we can clean up after it. I built workspace-metabolism: a zero-dep CLI where one policy file grades every path (G1–G4); clean moves files to a recycle area (never rm -rf), rollback is exact, and every move lands in a hash-chained journal. I call the framing Agentic Metabolic Engineering — L5 of the agentic stack.
+> AI writes code faster than we can clean up after it. Loops keep the agent running; metabolism keeps the workspace alive. I built workspace-metabolism: a zero-dep CLI where one policy file grades every path (G1–G4); clean moves files to a recycle area (never rm -rf), rollback is exact, and every move lands in a hash-chained journal. I call the framing Agentic Metabolic Engineering — L5 of the agentic stack.
 >
 > github.com/metabolism-tools/workspace-metabolism
 

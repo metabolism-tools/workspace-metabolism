@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "workspace-metabolism"
-version = "0.1.1"
+version = "0.1.2"
 description = "Policy-driven file lifecycle management: classify, audit, clean (recyclable), rollback and purge with a hash-chained audit trail."
 readme = "README.md"
 requires-python = ">=3.11"
