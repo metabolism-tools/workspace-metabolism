@@ -376,6 +376,32 @@ def test_size_only_integrity_for_large_items(env, tmp_path: Path, monkeypatch):
     assert (root / "cache_g4").exists()
 
 
+def test_clean_run_ids_unique_within_same_second(env, tmp_path: Path):
+    """Two rapid cleans must not overwrite the same run manifest."""
+    root, state = env
+    make_old_dir(root, "cache_g4")
+    reg = base_registry(tmp_path)
+    m.clean(root, reg, state, {"G4"}, yes=True)
+    make_old_dir(root, "cache_g4")
+    m.clean(root, reg, state, {"G4"}, yes=True)
+    runs = sorted((state / "runs").glob("clean-*.json"))
+    assert len(runs) == 2
+    assert runs[0].stem != runs[1].stem
+    for run in runs:
+        assert (state / "recycle" / run.stem / "cache_g4").exists()
+
+
+def test_audit_run_ids_unique_within_same_second(env, tmp_path: Path):
+    """Two rapid audits must not overwrite the same run report."""
+    root, state = env
+    reg = base_registry(tmp_path)
+    m.audit(root, reg, state)
+    m.audit(root, reg, state)
+    runs = sorted((state / "runs").glob("audit-*.json"))
+    assert len(runs) == 2
+    assert runs[0].stem != runs[1].stem
+
+
 def test_dupe_scan(env, tmp_path: Path):
     root, state = env
     reg = tmp_path / "registry.json"

@@ -498,7 +498,7 @@ def audit(
         reg_rel = str(registry_path)
 
     report = {
-        "run_id": f"audit-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+        "run_id": f"audit-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}",
         "ts": now_str(),
         "workspace": {"files": total_files, "size": total_size},
         "disk": {**disk, "alert": disk_alert, "alert_free_gb": alert_free_gb, "alert_free_pct": alert_free_pct},
@@ -698,7 +698,7 @@ def clean(
         print("nothing to do.")
         return
 
-    run_id = f"clean-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    run_id = f"clean-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
     recycle = state_dir / "recycle" / run_id
     runs_dir = state_dir / "runs"
     manifest = {"run_id": run_id, "ts": now_str(), "items": []}
