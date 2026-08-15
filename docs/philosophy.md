@@ -1,10 +1,11 @@
-# Metabolic Engineering: a philosophy for AI workspaces
+# Agentic Metabolic Engineering: a philosophy for AI-assisted workspaces
 
 Status: proposal, 2026-08-15. This document proposes a framing — it does not
 claim to have coined the words. The biological metaphor has precedents (for
 example "information metabolism", Kepiński, 1960s), and the term "metabolic
-engineering" belongs to synthetic biology. What is proposed here is applying
-that metaphor to the **file lifecycle of AI-assisted workspaces**, and the
+engineering" belongs to synthetic biology. What is proposed here is
+**Agentic Metabolic Engineering**: managing the byproducts of agent-driven
+software workspaces — not applying agents to biological metabolism. The
 proposal is embodied by the `workspace-metabolism` tool.
 
 ## 1. The problem: AI workspaces accumulate byproducts
@@ -35,8 +36,9 @@ draft outputs, one-off experiments. Versioning every one of them is too heavy.
 
 ## 3. The four phases
 
-Metabolic Engineering is not "delete garbage". It is a digestion system for
-the workspace, defined by four phases that map directly to `wm` commands:
+Agentic Metabolic Engineering is not "delete garbage". It is a digestion
+system for the workspace, defined by four phases that map directly to `wm`
+commands:
 
 | Phase | Tool | What it means in an AI workspace |
 | --- | --- | --- |
@@ -45,13 +47,13 @@ the workspace, defined by four phases that map directly to `wm` commands:
 | **Verification** | `wm verify` | Bioassay: the hash-chained journal records when matter was produced and when it moved. Any tampering is detected. |
 | **Anabolism** | `wm rollback` | Reabsorption: when a new loop discovers the old approach was better after all, rollback re-injects the material into the active workspace. Waste becomes feedstock. |
 
-## 4. Where this fits: Harness, Loop, Metabolism
+## 4. Where this fits: Harness, Loop, Agentic Metabolism
 
 - **Harness Engineering** designs the runtime environment that constrains an
   agent.
 - **Loop Engineering** designs the plan → execute → observe → reflect cycle.
-- **Metabolic Engineering** answers what happens to the byproducts each loop
-  leaves behind — the last mile of every loop.
+- **Agentic Metabolic Engineering** answers what happens to the byproducts
+  each loop leaves behind — the last mile of every loop.
 
 Proposal: at the end of each loop (after observation, before the next plan), a
 **micro-metabolism** step asks: "The files just produced — keep, archive,
@@ -97,13 +99,13 @@ Git versions tracked source. Workspace byproducts are mostly untracked,
 high-churn and non-code. This tool governs them without forcing a commit
 discipline onto every temporary file.
 
-**"Is 'Metabolic Engineering' an original term?"**
+**"Is 'Agentic Metabolic Engineering' an original term?"**
 
 Honest answer: the metaphor is not new ("information metabolism" dates to the
 1960s; "metabolic engineering" is an established bioengineering discipline).
-What this project proposes is applying the metaphor to AI workspace lifecycle
-governance, and giving it a concrete, auditable tool. We claim the framing, not
-the words.
+What this project proposes is the compound **Agentic Metabolic Engineering**
+for agent workspace lifecycle governance, backed by a concrete, auditable
+tool. We claim the framing, not the words.
 
 ## 7. Relationship to this repository
 
