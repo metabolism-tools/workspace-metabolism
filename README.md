@@ -37,8 +37,8 @@ metabolism is the frame. We call this framing **Agentic Metabolic Engineering**
 ## Quick start
 
 ```bash
-# install (PyPI release coming; editable install works today)
-pip install -e .
+# install from PyPI
+pip install workspace-metabolism
 
 # or run without installing anything:
 #   PYTHONPATH=src python -m workspace_metabolism --help

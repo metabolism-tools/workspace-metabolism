@@ -50,7 +50,7 @@ Highlights:
 - Scheduling out of the box: Windows Task Scheduler + cron templates (placeholders only, no environment guessing)
 - Zero dependencies; tests run on Ubuntu / Windows / macOS (Python 3.11 & 3.12)
 
-Links: [repo](https://github.com/metabolism-tools/workspace-metabolism) · [README](https://github.com/metabolism-tools/workspace-metabolism#readme) · PyPI (coming)
+Links: [repo](https://github.com/metabolism-tools/workspace-metabolism) · [README](https://github.com/metabolism-tools/workspace-metabolism#readme) · [PyPI](https://pypi.org/project/workspace-metabolism/)
 
 **Launch-day notes**
 
