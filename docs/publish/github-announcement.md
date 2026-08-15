@@ -32,13 +32,7 @@ GitHub 上的 v0.1.0 和 v0.1.1 已经发布，这里补两件事：把 release 
 
 ## 二、打开 Discussions（讨论区）
 
-网页操作：
-
-1. 打开 https://github.com/metabolism-tools/workspace-metabolism/settings/general
-2. 往下找到 Features，勾选 **Discussions**，点 Save
-3. 回到仓库主页，顶部会出现 **Discussions** 标签
-
-（如果你不想自己点，我可以用命令行帮你开。）
+✅ 已完成：Discussions 已开启（2026-08-15 确认）。
 
 ## 三、v0.1.2 的 release 说明（英文草稿）
 
@@ -47,6 +41,9 @@ v0.1.2 的英文 release 说明已整理好，见
 发布到 PyPI 后，把其中的英文正文粘贴到 GitHub Releases 即可。
 
 ## 三、发置顶公告
+
+✅ 已发布：https://github.com/metabolism-tools/workspace-metabolism/discussions/3（2026-08-15，正文为 v0.1.2 完整版）。
+置顶需要网页操作（API 不支持置顶）：打开公告 → 正文右下角 **…** → **Pin discussion**。
 
 网页操作：
 
@@ -61,9 +58,13 @@ v0.1.2 的英文 release 说明已整理好，见
 
 > `workspace-metabolism` is a zero-dependency CLI (Python 3.11+) that manages the lifecycle of files in an AI-driven workspace from a single policy file.
 >
+> **The one-liner:** loops keep the agent running; metabolism keeps the workspace alive.
+>
 > **The problem:** vibe coding and agentic loops leave behind drafts, caches, failed attempts, and half-finished refactors — faster than the code grows. The classic answer is a cron script that calls `rm -rf`, which can burn intermediate matter a future loop needs. Pure git is too heavy for untracked, high-churn byproducts.
 >
 > **The approach:** treat the workspace as a living system — audit (catabolism) → clean (sequestration, never delete) → verify (hash-chained journal) → rollback (anabolism). One JSON policy grades every path G1–G4, and nothing happens that the policy doesn't allow.
+>
+> **The proof:** a reproducible 30-loop experiment ships with the repo (`examples/metabolism_benchmark.py`). After 30 loops, a governed workspace holds 2 active files and 0 expired candidates; an ungoverned one holds 242 files and 240 candidates — and every governed byproduct stays recoverable via `wm rollback`.
 >
 > We propose **Agentic Metabolic Engineering** as a framing — the L5 layer of the agentic stack, the last mile of every loop. This is a proposal, not a claim of coining the words: "information metabolism" dates to the 1960s, and "metabolic engineering" belongs to synthetic biology.
 >
@@ -71,5 +72,6 @@ v0.1.2 的英文 release 说明已整理好，见
 > - [Philosophy](https://github.com/metabolism-tools/workspace-metabolism/blob/main/docs/philosophy.md)
 > - [Narrative](https://github.com/metabolism-tools/workspace-metabolism/blob/main/docs/narrative.md)
 > - [PyPI](https://pypi.org/project/workspace-metabolism/)
+> - [v0.1.2 release](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.1.2)
 >
-> v0.1.1 is early days; the policy schema may shift before v1.0. We'd love early adopters to break it on weird directory structures.
+> v0.1.2 is early days; the policy schema may shift before v1.0. We'd love early adopters to break it on weird directory structures.
