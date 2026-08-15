@@ -64,6 +64,66 @@ def test_cli_audit_json(tmp_path: Path, capsys):
     assert data["summary"]["journal_chain_ok"] is True
 
 
+def test_cli_init_and_autodiscovery(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "src").mkdir()
+    (root / "logs").mkdir()
+    state = tmp_path / "state"
+    assert main(["--root", str(root), "--state-dir", str(state), "init"]) == 0
+    assert (root / "metabolism.json").exists()
+    capsys.readouterr()  # discard init output
+    # no --registry: auto-discovery finds metabolism.json
+    assert main(["--root", str(root), "--state-dir", str(state), "audit", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert "health_score" in data["summary"]
+
+
+def test_cli_health_badge(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "src").mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    capsys.readouterr()  # discard init output
+    assert main(["--root", str(root), "--state-dir", str(state), "health", "--badge"]) == 0
+    badge = json.loads(capsys.readouterr().out)
+    assert badge["schemaVersion"] == 1
+    assert "message" in badge and "color" in badge
+
+
+def test_cli_explain(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "src").mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    assert main(["--root", str(root), "--state-dir", str(state), "explain", "src"]) == 0
+    out = capsys.readouterr().out
+    assert "policy entry" in out and "G2" in out
+
+
+def test_cli_mcp_initialize_and_health(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "src").mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    from workspace_metabolism.mcp_server import handle_message
+
+    ctx = {"root": root, "state_dir": state, "registry_path": root / "metabolism.json"}
+    resp = json.loads(handle_message('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}', ctx))
+    assert resp["result"]["protocolVersion"] == "2024-11-05"
+    resp = json.loads(
+        handle_message(
+            '{"jsonrpc":"2.0","id":2,"method":"tools/call",'
+            '"params":{"name":"wm_health","arguments":{}}}',
+            ctx,
+        )
+    )
+    assert '"score"' in resp["result"]["content"][0]["text"]
+
+
 def test_cli_clean_dry_run_and_verify(tmp_path: Path):
     root = tmp_path / "ws"
     root.mkdir()

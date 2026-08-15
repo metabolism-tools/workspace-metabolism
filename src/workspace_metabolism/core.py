@@ -29,6 +29,8 @@ TEXT_EXTS = {
     ".py", ".md", ".sh", ".ps1", ".json", ".toml", ".yaml", ".yml",
     ".txt", ".html", ".js",
 }
+SCHEMA_URL = "https://raw.githubusercontent.com/metabolism-tools/workspace-metabolism/main/schema/metabolism.schema.json"
+POLICY_FILENAMES = ("metabolism.json", ".wm.json")
 MAX_HASH_MB = 256
 MAX_HASH_FILES = 5000
 GENESIS = "GENESIS"
@@ -108,6 +110,82 @@ def load_registry(registry_path: Path) -> dict:
     return data
 
 
+def init_policy(root: Path, path: Path, force: bool = False) -> Path:
+    """Scaffold a metabolism.json policy file for a workspace (like `git init`)."""
+    if path.exists() and not force:
+        raise SystemExit(f"policy already exists: {path} (use --force to overwrite)")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    never_clean = [
+        ".git", "README.md", "LICENSE", "metabolism.json", ".wm.json",
+        "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt",
+        "package.json", "Cargo.toml", "go.mod", "pom.xml", "build.gradle",
+        "Makefile", "MANIFEST.in", ".gitignore", "Dockerfile",
+        "docker-compose.yml", "compose.yaml", "justfile", ".github", ".venv",
+        "CONTRIBUTING.md", "ROADMAP.md", "CHANGELOG.md", "SECURITY.md",
+        "AGENTS.md", "NOTICE",
+    ]
+    keep_dirs = {
+        "src", "docs", "tests", "test", "app", "lib", "include", "config",
+        "examples", "scripts", "tools", "knowledge", "schema",
+    }
+    g4_dirs = {
+        "logs": 30, "tmp": 7, "cache": 30, ".pytest_cache": 30,
+        ".mypy_cache": 30, ".ruff_cache": 30, ".tox": 30, "dist": 90,
+        "build": 90,
+    }
+    g3_dirs = {"archive": 60, "deprecated": 60, "staging": 60, "old": 90}
+    entries: list[dict] = []
+    for child in sorted(root.iterdir()):
+        if not child.is_dir() or child.name == ".git" or child.name in never_clean:
+            continue
+        name = child.name
+        if name in g4_dirs:
+            entries.append(
+                {
+                    "path": name, "grade": "G4", "cleanup": "auto",
+                    "retention_days": g4_dirs[name],
+                    "intent": "high-churn byproduct",
+                }
+            )
+        elif name in g3_dirs:
+            entries.append(
+                {
+                    "path": name, "grade": "G3", "cleanup": "approve",
+                    "retention_days": g3_dirs[name],
+                    "intent": "older material; human approval before recycle",
+                }
+            )
+        elif name in keep_dirs:
+            entries.append(
+                {
+                    "path": name, "grade": "G2", "cleanup": "never",
+                    "intent": "source or docs; always keep",
+                }
+            )
+    entries.append(
+        {
+            "path": "**/__pycache__", "grade": "G4", "cleanup": "auto",
+            "retention_days": 30, "intent": "python bytecode cache",
+        }
+    )
+    policy = {
+        "version": 1,
+        "$schema": SCHEMA_URL,
+        "description": f"workspace-metabolism policy for {root.name}",
+        "defaults": {
+            "recycle_retention_days": 30,
+            "max_item_mb": 2560,
+            "disk_alert_free_gb": 20,
+            "disk_alert_free_pct": 15,
+            "dupe_scan_dirs": ["tmp", "cache"],
+        },
+        "never_clean": never_clean,
+        "entries": entries,
+    }
+    path.write_text(json.dumps(policy, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
 def entry_covers(entry: dict, rel: Path) -> bool:
     """Whether a registry entry covers a relative path (supports * and **/ patterns)."""
     pattern = entry["path"]
@@ -172,6 +250,9 @@ def collect_candidates(root: Path, registry: dict, now: datetime | None = None) 
                     "files": files,
                     "size": size,
                     "note": entry.get("note", ""),
+                    "owner": entry.get("owner", ""),
+                    "intent": entry.get("intent", ""),
+                    "review_after": entry.get("review_after", ""),
                     "protected": bool(entry.get("protected", False)),
                     "remote_authoritative": bool(entry.get("remote_authoritative", False)),
                 }
@@ -434,6 +515,43 @@ def last_audit_size(state_dir: Path) -> Optional[int]:
     return last_size
 
 
+def health_score(report: dict) -> dict:
+    """0-100 workspace health score from an audit report.
+
+    Four weighted components: auditability (25), governance (25), rot burden
+    (35) and recycle readiness (15). See docs/narrative.md for the rationale.
+    """
+    summary = report.get("summary", {})
+    total_files = max(int(summary.get("files", 0)), 1)
+    auditability = 25 if summary.get("journal_chain_ok") else 0
+    governance = max(
+        0,
+        25 - 5 * int(summary.get("unregistered", 0)) - (10 if summary.get("disk_alert") else 0),
+    )
+    candidate_ratio = min(1.0, int(summary.get("candidates", 0)) / total_files)
+    rot = round(35 * (1 - candidate_ratio))
+    recycle = 15 if int(summary.get("recycle_files", 0)) > 0 else 10
+    score = auditability + governance + rot + recycle
+    grade = "A" if score >= 90 else "B" if score >= 75 else "C" if score >= 60 else "D"
+    return {
+        "score": score,
+        "grade": grade,
+        "components": {
+            "auditability": auditability,
+            "governance": governance,
+            "rot": rot,
+            "recycle": recycle,
+        },
+        "flags": {
+            "journal_ok": bool(summary.get("journal_chain_ok")),
+            "unregistered": int(summary.get("unregistered", 0)),
+            "disk_alert": bool(summary.get("disk_alert")),
+            "candidates": int(summary.get("candidates", 0)),
+            "recycle_files": int(summary.get("recycle_files", 0)),
+        },
+    }
+
+
 def audit(
     root: Path,
     registry_path: Path,
@@ -543,6 +661,10 @@ def audit(
         "journal_entries": journal_state["entries"],
         "journal_chain_ok": journal_state["chain_ok"],
     }
+    hs = health_score(report)
+    report["summary"]["health_score"] = hs["score"]
+    report["summary"]["health_grade"] = hs["grade"]
+    report["health"] = hs
 
     reports_dir = state_dir / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
@@ -577,6 +699,10 @@ def render_report(report: dict, root: Path) -> str:
             f"- recycle: {summary['recycle_files']} files, {summary['recycle_mb']} MB "
             f"({summary['recycle_ratio_pct']}% of workspace)"
         )
+        if "health_score" in summary:
+            lines.append(
+                f"- health: {summary['health_score']}/100 ({summary['health_grade']})"
+            )
         lines.append(f"- journal: {summary['journal_entries']} entries, chain {chain}")
     lines.append("")
     lines.append("## Cleanable candidates (past retention)")
@@ -745,6 +871,55 @@ def clean(
         approver=approver,
     )
     print(f"done: {moved_ok}/{len(todo)} item(s) moved to recycle. rollback: wm rollback {run_id}")
+
+
+def explain(root: Path, registry_path: Path, state_dir: Path, rel_path: str) -> dict:
+    """Explain what the policy says about one path (the 'nutrition label')."""
+    registry = load_registry(registry_path)
+    rel = Path(rel_path)
+    target = root / rel
+    if not target.exists():
+        raise SystemExit(f"path not found: {rel}")
+    rel_s = rel.as_posix()
+    covered = [e for e in registry["entries"] if entry_covers(e, rel)]
+    if not covered:
+        return {"path": rel_s, "covered": False, "managed": False}
+    entry = covered[0]
+    info = {
+        "path": rel_s,
+        "covered": True,
+        "managed": entry.get("cleanup") != "never",
+        "entry_path": entry["path"],
+        "grade": entry["grade"],
+        "cleanup": entry.get("cleanup"),
+        "retention_days": entry.get("retention_days"),
+        "scope": entry.get("scope"),
+        "protected": bool(entry.get("protected", False)),
+        "remote_authoritative": bool(entry.get("remote_authoritative", False)),
+        "category": entry.get("category", ""),
+        "note": entry.get("note", ""),
+        "owner": entry.get("owner", ""),
+        "intent": entry.get("intent", ""),
+        "review_after": entry.get("review_after", ""),
+    }
+    candidates = collect_candidates(root, registry)
+    hit = next(
+        (c for c in candidates if rel_s == c["path"] or rel_s.startswith(c["path"] + "/")),
+        None,
+    )
+    if hit:
+        info["candidate"] = True
+        info["candidate_path"] = hit["path"]
+        info["age_days"] = hit["age_days"]
+        info["files"] = hit["files"]
+        info["size"] = hit["size"]
+        if hit["grade"] == "G3":
+            refs = find_references(root, state_dir, Path(hit["path"]).name)
+            info["references"] = refs[:5]
+            info["blocked_by_references"] = bool(refs)
+    else:
+        info["candidate"] = False
+    return info
 
 
 def rollback(root: Path, state_dir: Path, run_id: str, dry: bool = False, operator: str = "manual") -> None:

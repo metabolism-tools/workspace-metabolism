@@ -402,6 +402,85 @@ def test_audit_run_ids_unique_within_same_second(env, tmp_path: Path):
     assert runs[0].stem != runs[1].stem
 
 
+def test_init_policy_scaffolds_standard_file(tmp_path: Path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    for name in ("src", "docs", "logs", "tmp", "cache", "archive"):
+        (root / name).mkdir()
+    path = m.init_policy(root, root / "metabolism.json")
+    assert path.exists()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["version"] == 1
+    assert "metabolism.json" in data["never_clean"]
+    paths = {e["path"] for e in data["entries"]}
+    assert {"src", "docs", "logs", "tmp", "cache", "archive", "**/__pycache__"} <= paths
+    logs = next(e for e in data["entries"] if e["path"] == "logs")
+    assert logs["grade"] == "G4" and logs["retention_days"] == 30
+    archive = next(e for e in data["entries"] if e["path"] == "archive")
+    assert archive["grade"] == "G3" and archive["cleanup"] == "approve"
+
+
+def test_init_policy_refuses_overwrite(tmp_path: Path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    target = root / "metabolism.json"
+    target.write_text("{}", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        m.init_policy(root, target)
+    m.init_policy(root, target, force=True)
+
+
+def test_health_score_formula():
+    healthy = {
+        "summary": {
+            "files": 5,
+            "candidates": 0,
+            "unregistered": 0,
+            "disk_alert": False,
+            "recycle_files": 3,
+            "journal_chain_ok": True,
+        }
+    }
+    hs = m.health_score(healthy)
+    assert hs["score"] == 100
+    assert hs["grade"] == "A"
+    rotten = {
+        "summary": {
+            "files": 10,
+            "candidates": 10,
+            "unregistered": 5,
+            "disk_alert": True,
+            "recycle_files": 0,
+            "journal_chain_ok": False,
+        }
+    }
+    hs2 = m.health_score(rotten)
+    assert hs2["score"] == 10
+    assert hs2["grade"] == "D"
+
+
+def test_explain_covered_candidate(env, tmp_path: Path):
+    root, state = env
+    make_old_dir(root, "cache_g4")
+    reg = base_registry(tmp_path)
+    info = m.explain(root, reg, state, "cache_g4")
+    assert info["covered"] is True
+    assert info["managed"] is True
+    assert info["grade"] == "G4"
+    assert info["candidate"] is True
+    assert info["age_days"] > 30
+
+
+def test_explain_uncovered(env, tmp_path: Path):
+    root, state = env
+    (root / "misc").mkdir()
+    (root / "misc" / "f.txt").write_text("x", encoding="utf-8")
+    reg = base_registry(tmp_path)
+    info = m.explain(root, reg, state, "misc")
+    assert info["covered"] is False
+    assert info["managed"] is False
+
+
 def test_dupe_scan(env, tmp_path: Path):
     root, state = env
     reg = tmp_path / "registry.json"

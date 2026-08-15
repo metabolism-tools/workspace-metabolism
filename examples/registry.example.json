@@ -10,15 +10,15 @@
   },
   "never_clean": [".git", "README.md", "LICENSE", "docs", "src", "examples"],
   "entries": [
-    {"path": "src", "category": "C1", "grade": "G2", "cleanup": "never", "note": "source code, keep forever"},
+    {"path": "src", "category": "C1", "grade": "G2", "cleanup": "never", "note": "source code, keep forever", "owner": "platform", "intent": "source is the product"},
     {"path": "docs", "category": "C4", "grade": "G2", "cleanup": "never", "note": "documentation, keep forever"},
     {"path": "examples", "category": "C4", "grade": "G2", "cleanup": "never", "note": "demo assets, keep forever"},
-    {"path": "logs", "category": "C8", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "runtime logs, rebuildable"},
+    {"path": "logs", "category": "C8", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "runtime logs, rebuildable", "owner": "sre", "intent": "rebuildable by nature; 30 days is enough"},
     {"path": "tmp", "category": "C8", "grade": "G4", "cleanup": "auto", "retention_days": 30, "scope": "files_only", "note": "one-off files at the top level"},
     {"path": "cache", "category": "C7", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "download cache, rebuildable"},
     {"path": "**/__pycache__", "category": "C7", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "python bytecode cache"},
     {"path": ".pytest_cache", "category": "C7", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "pytest cache"},
-    {"path": "archive", "category": "C8", "grade": "G3", "cleanup": "approve", "retention_days": 60, "note": "old backups; requires approval and a reference check"},
+    {"path": "archive", "category": "C8", "grade": "G3", "cleanup": "approve", "retention_days": 60, "note": "old backups; requires approval and a reference check", "owner": "data", "review_after": "2027-01-01"},
     {"path": ".venv", "category": "C7", "grade": "G3", "cleanup": "approve", "retention_days": 90, "note": "virtualenv; rebuildable but costly"}
   ]
 }

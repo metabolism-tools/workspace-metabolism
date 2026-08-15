@@ -13,7 +13,11 @@ from .core import (
     audit,
     clean,
     default_state_dir,
+    explain,
+    health_score,
+    init_policy,
     parse_window,
+    POLICY_FILENAMES,
     purge,
     rollback,
     status,
@@ -26,6 +30,17 @@ def _resolve_state_dir(root: Path, raw: str | None) -> Path:
         sd = Path(raw)
         return (sd if sd.is_absolute() else root / sd).resolve()
     return default_state_dir().resolve()
+
+
+def _resolve_registry(root: Path, raw: str | None) -> Path | None:
+    """Explicit --registry wins; otherwise auto-discover the standard file."""
+    if raw:
+        return Path(raw).resolve()
+    for name in POLICY_FILENAMES:
+        candidate = root / name
+        if candidate.exists():
+            return candidate.resolve()
+    return None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -89,6 +104,25 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_status = sub.add_parser("status", help="workspace and state overview")
 
+    p_init = sub.add_parser("init", help="scaffold a metabolism.json policy file (like `git init`)")
+    p_init.add_argument("--force", action="store_true", help="overwrite an existing policy file")
+    p_init.add_argument(
+        "--file",
+        default="metabolism.json",
+        choices=list(POLICY_FILENAMES),
+        help="policy file name (default: metabolism.json)",
+    )
+
+    p_explain = sub.add_parser("explain", help="explain what the policy says about a path")
+    p_explain.add_argument("path", help="relative path inside the workspace")
+    p_explain.add_argument("--json", action="store_true", help="print the explanation as JSON")
+
+    p_health = sub.add_parser("health", help="workspace health score (0-100)")
+    p_health.add_argument("--json", action="store_true", help="print the score breakdown as JSON")
+    p_health.add_argument("--badge", action="store_true", help="print a shields.io badge JSON")
+
+    sub.add_parser("mcp", help="run the MCP stdio server so agents can run micro-metabolism")
+
     return parser
 
 
@@ -105,9 +139,25 @@ def main(argv: list[str] | None = None) -> int:
     state_dir = _resolve_state_dir(root, args.state_dir)
     window = parse_window(args.protected_window)
     operator = "auto" if getattr(args, "auto", False) else "manual"
-    registry_path = Path(args.registry) if args.registry else None
-    if args.command in ("audit", "clean", "status") and registry_path is None:
-        raise SystemExit("--registry is required for audit/clean/status (see examples/registry.example.json)")
+    registry_path = _resolve_registry(root, args.registry)
+
+    if args.command == "init":
+        target = root / args.file
+        created = init_policy(root, target, force=args.force)
+        print(f"policy created: {created}")
+        print("next steps:")
+        print("  wm audit      - first checkup (read-only)")
+        print("  wm status     - workspace and state overview")
+        print("  wm health     - workspace health score (0-100)")
+        print("  wm explain <path> - why a path is graded the way it is")
+        print("edit the policy file and commit it like any source file")
+        return 0
+
+    if args.command in ("audit", "clean", "status", "explain", "health") and registry_path is None:
+        raise SystemExit(
+            "no policy file found (metabolism.json / .wm.json); "
+            "run `wm init` first or pass --registry"
+        )
 
     if args.command == "audit":
         report, report_path = audit(
@@ -152,4 +202,71 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  #{e['seq']} [{e['ts']}] {e['action']} operator={e['operator']} run_id={e.get('run_id') or e.get('batches') or '-'}")
     elif args.command == "status":
         status(root, registry_path, state_dir)
+    elif args.command == "explain":
+        info = explain(root, registry_path, state_dir, args.path)
+        if args.json:
+            print(json.dumps(info, ensure_ascii=False, indent=2))
+        else:
+            print(f"path: {info['path']}")
+            if not info.get("covered"):
+                print("unregistered: no policy entry covers this path -> nothing will ever happen to it")
+                print("add an entry to your policy file if you want to govern it")
+                return 0
+            print(f"policy entry: {info['entry_path']}  ({info['grade']} / {info['cleanup']})")
+            if info.get("retention_days") is not None:
+                print(f"retention: {info['retention_days']} days")
+            if info.get("intent"):
+                print(f"intent: {info['intent']}")
+            if info.get("owner"):
+                print(f"owner: {info['owner']}")
+            if info.get("review_after"):
+                print(f"review after: {info['review_after']}")
+            if info.get("protected"):
+                print("protected: skipped while a --protected-window is active")
+            if info.get("remote_authoritative"):
+                print("remote authoritative: source of truth lives elsewhere")
+            if info.get("candidate"):
+                print(
+                    f"status: candidate (idle {info['age_days']} days, "
+                    f"{info.get('files', '?')} files, {info.get('size', 0) / 1024:.1f} KB)"
+                )
+                if info.get("grade") == "G3":
+                    refs = info.get("references", [])
+                    if info.get("blocked_by_references"):
+                        print(f"blocked: referenced in {len(refs)} file(s): {', '.join(refs)}")
+                    else:
+                        print("status: G3 candidate needs --approve + --approver before recycling")
+            else:
+                print("status: not a candidate right now")
+    elif args.command == "health":
+        report, _ = audit(root, registry_path, state_dir)
+        hs = health_score(report)
+        if args.badge:
+            color = {"A": "green", "B": "yellowgreen", "C": "yellow", "D": "red"}[hs["grade"]]
+            print(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "workspace health",
+                        "message": f"{hs['score']} {hs['grade']}",
+                        "color": color,
+                    }
+                )
+            )
+        elif args.json:
+            print(json.dumps(hs, ensure_ascii=False, indent=2))
+        else:
+            print(f"health: {hs['score']}/100 ({hs['grade']})")
+            comp = hs["components"]
+            print(f"  auditability: {comp['auditability']}/25   governance: {comp['governance']}/25")
+            print(f"  rot burden: {comp['rot']}/35   recycle readiness: {comp['recycle']}/15")
+            flags = hs["flags"]
+            print(f"  candidates: {flags['candidates']}   unregistered: {flags['unregistered']}"
+                  f"   disk alert: {flags['disk_alert']}   journal chain: {'OK' if flags['journal_ok'] else 'BROKEN'}")
+            if hs["score"] < 90:
+                print("  next: run `wm audit` for the full report, then `wm clean --grades G4` (dry-run first)")
+    elif args.command == "mcp":
+        from . import mcp_server
+
+        return mcp_server.main(root, state_dir, registry_path)
     return 0
