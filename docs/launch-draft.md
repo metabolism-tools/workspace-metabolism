@@ -98,4 +98,4 @@ Repo: https://github.com/metabolism-tools/workspace-metabolism
 - [x] `examples/registry.example.json` is valid JSON (validated)
 - [x] Identity decision made (Option B: neutral org `metabolism-tools`)
 - [x] Final URLs in place (metabolism-tools/workspace-metabolism)
-- [ ] Org created + repo transferred (blocked on org creation in browser)
+- [x] Org created + repo transferred (metabolism-tools/workspace-metabolism, public)
