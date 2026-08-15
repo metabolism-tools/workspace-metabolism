@@ -1,4 +1,4 @@
-# Agentic Metabolic Engineering: a philosophy for AI-assisted workspaces
+# Agentic Metabolic Engineering: a philosophy for agent-driven workspaces
 
 Status: proposal, 2026-08-15. This document proposes a framing — it does not
 claim to have coined the words. The biological metaphor has precedents (for
@@ -26,9 +26,9 @@ workspace becomes a compost pile without a gardener.
 ## 2. Why "just delete it" is not enough
 
 The classic answer is a cleanup script that calls `rm -rf`. That is
-**autophagy**: it burns potentially valuable intermediate matter. An AI's next
-loop might need the very file that was just destroyed, and once it is gone the
-provenance is gone with it.
+**autophagy** (cellular self-digestion): it burns potentially valuable
+intermediate matter. An AI's next loop might need the very file that was just
+destroyed, and once it is gone the provenance is gone with it.
 
 The other extreme is pure git. Git is right for tracked source, but most
 workspace byproducts are untracked, high-churn, non-code assets: caches, logs,
@@ -77,6 +77,10 @@ the same question.
 Cleanup tools answer "what should be deleted". This project answers "what
 should be kept, recycled, or reactivated" — and makes that answer auditable.
 
+*Some AI-cleanup tools can be configured to move rather than delete; the
+difference remains that `workspace-metabolism` builds rollback and verification
+into its core model.
+
 ## 6. FAQ
 
 **"Isn't this just cleanup?"**
@@ -103,9 +107,10 @@ discipline onto every temporary file.
 
 Honest answer: the metaphor is not new ("information metabolism" dates to the
 1960s; "metabolic engineering" is an established bioengineering discipline).
-What this project proposes is the compound **Agentic Metabolic Engineering**
-for agent workspace lifecycle governance, backed by a concrete, auditable
-tool. We claim the framing, not the words.
+What this project attempts is to apply that metaphor to agent workspace
+lifecycle governance, and to give it a concrete, auditable tool. The compound
+"Agentic Metabolic Engineering" is used here as a convenient label for that
+attempt, not as a claim of coining. We claim the framing, not the words.
 
 ## 7. Relationship to this repository
 
