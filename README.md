@@ -29,6 +29,21 @@ allows — nothing more.
 - Scheduled runs are supported out of the box on Windows (Task Scheduler) and
   Linux/macOS (cron) via templates in `examples/`
 
+### Why not just a scheduled cleanup?
+
+A scheduled task — or asking Codex to "clean up old files" on a timer — gets
+you *at some point, files get removed*. `workspace-metabolism` gets you:
+
+- rules that live in the repo (`metabolism.json`), versioned and reviewable
+- cleanup that never deletes directly: recycle area, per-file SHA-256, exact
+  `rollback`
+- a hash-chained journal that detects tampering
+- the same behavior on every machine and every run, no AI judgment involved
+
+Scheduling and metabolism are complementary, not rivals: this repo ships cron,
+Windows Task Scheduler and CI templates that run `wm` itself. The scheduler
+answers *when*; the policy answers *what, how, and how to undo it*.
+
 ## See it in action
 
 This repo ships a reproducible benchmark: two identical workspaces run 30

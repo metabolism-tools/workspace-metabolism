@@ -147,6 +147,15 @@ Git versions tracked source. Workspace byproducts are mostly untracked,
 high-churn and non-code. This tool governs them without forcing a commit
 discipline onto every temporary file.
 
+**"Isn't this just a scheduled cleanup task?"**
+
+A scheduled cleanup answers "when should old files be removed?" A metabolism
+policy answers "what is worth keeping, how is it removed, and how do we undo
+it?" A cron job or an agent prompt can drift between runs; the policy file is
+deterministic, versioned and reviewable. And the two compose: the repository
+ships scheduling templates (cron, Windows Task Scheduler, CI) that run `wm`
+itself. The scheduler is the alarm clock; the policy is the digestive system.
+
 **"Is 'Agentic Metabolic Engineering' an original term?"**
 
 Honest answer: the metaphor is not new ("information metabolism" dates to the
