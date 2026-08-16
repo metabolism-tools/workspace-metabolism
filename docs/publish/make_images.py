@@ -384,6 +384,84 @@ def experiment_30_vertical():
     img.save(OUT / "experiment-30-zh-v.png")
 
 
+def _comparison_panels(d, w, panels, y0, panel_w, panel_h, gap, fnt_header, fnt_row, row_gap):
+    x0 = (w - panel_w * 2 - gap) // 2
+    for i, (title, rows, color) in enumerate(panels):
+        x = x0 + i * (panel_w + gap)
+        d.rounded_rectangle((x, y0, x + panel_w, y0 + panel_h), radius=30, fill=CARD, outline=color, width=3)
+        cx = x + panel_w // 2
+        center_text(d, cx, y0 + 66, title, fnt_header, color)
+        yy = y0 + 150
+        row_fnt = fnt_row
+        for row in rows:
+            d.ellipse((x + 62, yy - 9, x + 78, yy + 7), fill=color)
+            d.text((x + 100, yy), row, font=row_fnt, fill=TEXT, anchor="lm")
+            yy += row_gap
+
+
+def scheduled_vs_metabolism():
+    w, h = 1536, 864
+    img, d = new_canvas(w, h)
+    d.ellipse((-200, -260, 480, 360), fill=(22, 46, 44))
+    d.ellipse((1120, 620, 1760, 1260), fill=(20, 36, 56))
+
+    center_text(d, w // 2, 92, "定时清理 ≠ 代谢系统", font(60, bold=True), TEXT)
+    center_text(
+        d, w // 2, 152,
+        "Scheduling answers WHEN · policy answers WHAT, HOW, and HOW TO UNDO",
+        font(26), MUTED,
+    )
+
+    panels = [
+        (
+            "定时清理任务",
+            ["规则在对话里，每次可能不一样", "删了不可逆，没有回收区", "没有审计账本", "只回答：到点删"],
+            RED,
+        ),
+        (
+            "代谢系统",
+            ["策略进仓库，可评审可版本化", "回收区 + SHA-256，删错可回滚", "哈希链审计，篡改会被发现", "每台机器、每次运行行为一致"],
+            ACCENT,
+        ),
+    ]
+    _comparison_panels(d, w, panels, 230, 620, 470, 50, font(44, bold=True), font(30), 86)
+
+    center_text(d, w // 2, 772, "调度器是闹钟，策略是消化系统", font(38, bold=True), ACCENT)
+    center_text(d, w // 2, 830, "可以组合：cron · Windows 任务计划 · CI 定时跑 wm", font(26), MUTED)
+
+    img.save(OUT / "scheduled-vs-metabolism-zh.png")
+
+
+def scheduled_vs_metabolism_vertical():
+    w, h = 1242, 1656
+    img, d = new_canvas(w, h)
+    d.ellipse((-220, -260, 460, 420), fill=(23, 50, 46))
+    d.ellipse((920, 1320, 1540, 1940), fill=(20, 36, 56))
+
+    center_text(d, w // 2, 100, "定时清理 ≠ 代谢系统", font(58, bold=True), TEXT)
+    center_text(d, w // 2, 160, "调度器是闹钟，策略是消化系统", font(30), MUTED)
+
+    panels = [
+        (
+            "定时清理任务",
+            ["规则在对话里，每次可能不一样", "删了不可逆，没有回收区", "没有审计账本", "只回答：到点删"],
+            RED,
+        ),
+        (
+            "代谢系统",
+            ["策略进仓库，可评审可版本化", "回收区 + SHA-256，删错可回滚", "哈希链审计，篡改会被发现", "每台机器、每次运行行为一致"],
+            ACCENT,
+        ),
+    ]
+    _comparison_panels(d, w, panels, 240, 1040, 560, 70, font(48, bold=True), font(34), 100)
+
+    center_text(d, w // 2, 1480, "循环让 Agent 一直跑，代谢让工作区一直活", font(40, bold=True), ACCENT)
+    center_text(d, w // 2, 1545, "可以组合：cron · 任务计划 · CI 定时跑 wm", font(28), MUTED)
+    center_text(d, w // 2, 1610, "GitHub 搜索 workspace-metabolism", font(32, bold=True), TEXT)
+
+    img.save(OUT / "scheduled-vs-metabolism-zh-v.png")
+
+
 if __name__ == "__main__":
     cover(["循环让 Agent 一直跑，", "代谢让工作区一直活"], "cover-zh.png")
     cover(["AI 写代码后，", "工作区谁来收拾？"], "cover-alt-zh.png")
@@ -393,4 +471,6 @@ if __name__ == "__main__":
     four_phases_vertical()
     stack_l5_vertical()
     experiment_30_vertical()
+    scheduled_vs_metabolism()
+    scheduled_vs_metabolism_vertical()
     print("saved to", OUT)

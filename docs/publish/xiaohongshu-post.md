@@ -23,6 +23,8 @@ AI 写代码像喷泉，工作区却没有排水系统 🌊
 
 核心思路：一份策略文件说了算（G1–G4 分级），工具默认只读、绝不误删。
 
+定时任务只负责「到点清理」，它负责「删得对、删错能找回」⏰
+
 这个框架叫「智能体代谢工程」——Agentic 工程栈的 L5 层，一句话：
 
 循环让 Agent 一直跑，代谢让工作区一直活 ✨
@@ -42,6 +44,7 @@ GitHub 搜索：workspace-metabolism
 3. `images/four-phases-zh-v.png` —— 四阶段图（竖版）：检查 / 回收 / 验证 / 回滚
 4. `images/experiment-30-zh-v.png` —— 30 轮对照实验数字卡（竖版）：2 vs 242
 5. `images/stack-l5-zh-v.png` —— agentic 工程栈图（竖版，可选第 5 张）
+6. `images/scheduled-vs-metabolism-zh-v.png` —— 定时清理 vs 代谢系统对比卡（竖版，可选第 6 张）
 
 横版版式（给 X / 知乎）在 `images/four-phases-zh.png`、`images/stack-l5-zh.png`；想凑 6–7 张再补：策略文件截图（G1–G4）、安装命令截图、结尾卡。
 

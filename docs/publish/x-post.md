@@ -35,6 +35,12 @@
 >
 > pip install workspace-metabolism · https://pypi.org/project/workspace-metabolism
 
+**跟帖 4：**
+
+> "Isn't this just a scheduled cleanup?" A scheduler answers when. The policy file answers what, how, and how to undo it.
+>
+> They compose: cron / Task Scheduler / CI templates run `wm` on a schedule. Alarm clock + digestive system.
+
 ## 方式 B：合并成 1 条
 
 > AI writes code like a fountain. Loops keep the agent running; metabolism keeps the workspace alive. I built workspace-metabolism: one policy file, recyclable clean, exact rollback, hash-chained audit. Agentic Metabolic Engineering, L5.
