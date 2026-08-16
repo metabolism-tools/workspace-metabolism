@@ -399,6 +399,20 @@ def _comparison_panels(d, w, panels, y0, panel_w, panel_h, gap, fnt_header, fnt_
             yy += row_gap
 
 
+def _comparison_panels_stacked(d, w, panels, y0, panel_w, panel_h, gap, fnt_header, fnt_row, row_gap):
+    x0 = (w - panel_w) // 2
+    for i, (title, rows, color) in enumerate(panels):
+        y = y0 + i * (panel_h + gap)
+        d.rounded_rectangle((x0, y, x0 + panel_w, y + panel_h), radius=30, fill=CARD, outline=color, width=3)
+        cx = x0 + panel_w // 2
+        center_text(d, cx, y + 66, title, fnt_header, color)
+        yy = y + 150
+        for row in rows:
+            d.ellipse((x0 + 62, yy - 9, x0 + 78, yy + 7), fill=color)
+            d.text((x0 + 100, yy), row, font=fnt_row, fill=TEXT, anchor="lm")
+            yy += row_gap
+
+
 def scheduled_vs_metabolism():
     w, h = 1536, 864
     img, d = new_canvas(w, h)
@@ -453,7 +467,7 @@ def scheduled_vs_metabolism_vertical():
             ACCENT,
         ),
     ]
-    _comparison_panels(d, w, panels, 240, 1040, 560, 70, font(48, bold=True), font(34), 100)
+    _comparison_panels_stacked(d, w, panels, 240, 1040, 560, 70, font(48, bold=True), font(34), 100)
 
     center_text(d, w // 2, 1480, "循环让 Agent 一直跑，代谢让工作区一直活", font(40, bold=True), ACCENT)
     center_text(d, w // 2, 1545, "可以组合：cron · 任务计划 · CI 定时跑 wm", font(28), MUTED)
