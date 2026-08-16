@@ -29,6 +29,22 @@ allows — nothing more.
 - Scheduled runs are supported out of the box on Windows (Task Scheduler) and
   Linux/macOS (cron) via templates in `examples/`
 
+## See it in action
+
+This repo ships a reproducible benchmark: two identical workspaces run 30
+simulated agent loops; one ends every loop with `wm clean`, the other never
+cleans. The result — **2 active files vs 242** — is a number you can reproduce
+yourself:
+
+```bash
+python examples/metabolism_benchmark.py
+```
+
+A recorded run (2026-08-16, wm 0.2.0) is in
+[docs/publish/benchmark-run-20260816.json](docs/publish/benchmark-run-20260816.json)
+(raw log:
+[docs/publish/benchmark-run-20260816.txt](docs/publish/benchmark-run-20260816.txt)).
+
 ## 🧬 Philosophy
 
 `workspace-metabolism` treats your AI-generated workspace as a living system,

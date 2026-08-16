@@ -185,7 +185,12 @@ After 30 loops (240 byproducts):
 | Expired candidates | 0 | 240 |
 | Workspace size | ~0 MB | 0.4 MB |
 | What the next agent sees | the real code | the real code + 240 byproducts |
+| Recycle area | 240 files, verified | 0 |
+| Hash-chain integrity | ✅ passed | N/A |
+| Rollback readiness | ✅ passed | N/A |
 | Audit time (best of 3) | 79.9 ms | 92.9 ms |
+
+**2 vs 242.** That is the difference one `wm clean` per loop makes.
 
 The governed workspace keeps its 240 byproducts in the recycle area
 (0.4 MB), each tied to a clean run; `wm verify` reports 33 journal entries
@@ -198,6 +203,10 @@ The audit timings are machine-dependent — reproduce them with
 the ungoverned workspace grows linearly while the governed one stays flat,
 and every byproduct stays recoverable. Measured 2026-08-15, Windows, Python
 3.12.
+
+A fresh reproduction record from 2026-08-16 (wm 0.2.0, Windows, Python 3.12)
+ships with the repo: [benchmark-run-20260816.json](publish/benchmark-run-20260816.json)
+(raw log: [benchmark-run-20260816.txt](publish/benchmark-run-20260816.txt)).
 
 ## 8. The measure
 

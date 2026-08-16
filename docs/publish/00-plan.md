@@ -17,20 +17,20 @@
 
 ## 每步做什么
 
-1. **GitHub**：✅ v0.1.2 的 release 说明已发布（2026-08-15）；✅ 公告已发布：https://github.com/metabolism-tools/workspace-metabolism/discussions/3。剩余：网页置顶（… → Pin discussion）。
+1. **GitHub**：✅ v0.2.0 的 release 已发布；✅ 公告已发布并置顶：https://github.com/metabolism-tools/workspace-metabolism/discussions/3。
 2. **X**：发 1 条主帖 + 3 条跟帖（或合并成 1 条），链接指向 GitHub 仓库。文案见 [x-post.md](x-post.md)。
 3. **知乎**：发完整中文文章，粘贴 [zhihu-post.md](zhihu-post.md) 的内容，末尾带仓库链接。
 4. **小红书**：发短笔记，粘贴 [xiaohongshu-post.md](xiaohongshu-post.md) 的内容，配 3–6 张图。小红书不能放外链，正文里写「GitHub 搜索 workspace-metabolism」。
 
 ## 每个平台的口径
 
-- 语气统一：v0.1 早期版本，欢迎试用和反馈；策略格式在 v1.0 前可能微调。
+- 语气统一：v0.2 早期版本，欢迎试用和反馈；策略格式在 v1.0 前可能微调。
 - 诚实声明统一：提出一种框架，不宣称造词；「信息代谢」可追溯到 1960 年代，「代谢工程」是合成生物学已有术语。
 - 私人项目相关内容一律不出现（发布前用「GitHub 搜索 workspace-metabolism」的方式引导，不用任何私人账号名）。
 
 ## 发布前通用检查
 
-- [x] v0.1.2 已发布到 PyPI 与 GitHub Release（2026-08-15）
+- [x] v0.2.0 已发布到 PyPI 与 GitHub Release（2026-08-15）
 - [x] GitHub 讨论区公告已发布（discussions/3）；置顶需网页点击
 - [ ] 打开 https://github.com/metabolism-tools/workspace-metabolism 确认能访问
 - [ ] 复制文案前先试一下链接

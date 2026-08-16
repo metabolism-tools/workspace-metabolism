@@ -1,11 +1,11 @@
-# 知乎发布文案（完整中文文章，v0.1.2 最终版）
+# 知乎发布文案（完整中文文章，v0.2.0 最终版）
 
 > 发布前（此部分不要粘贴）：
 > - 推荐标题 A：《循环让 Agent 一直跑，代谢让工作区一直活》
 > - 备选标题 B：《AI 写代码像喷泉，工作区却没有排水系统》
 > - 备选标题 C：《Agentic Metabolic Engineering：Vibe Coding 的下半场》
 > - 粘贴后到知乎编辑器微调表格和代码块；配图用仓库 docs/terminal-preview.png 或一张 `wm audit` 终端截图。
-> - 文中三个链接已更新为 v0.1.2，发布前点一遍确认可访问。
+> - 文中三个链接已更新为 v0.2.0，发布前点一遍确认可访问。
 
 ---
 
@@ -81,13 +81,15 @@ Loop 时代把 AI 变成了工厂，代谢时代要管理工厂留下的东西�
 
 数字会随机器变化（`python examples/metabolism_benchmark.py` 可复现），结构不会：无代谢的工作区线性膨胀，有代谢的工作区保持平坦，而且每个副产物都还能找回来。
 
+仓库里还存着 2026-08-16 的真实运行记录（`docs/publish/benchmark-run-20260816.json`），含工具版本、运行时间、脚本校验值，任何人可以对照复现。
+
 ## 代谢债与工作区腐烂
 
 **代谢债（Metabolic Debt）**：无人管理的副产物累积成的代价——文件越堆越多、上下文被污染、旧实现和新实现互相打架。它之于工作区，正如技术债之于代码库。**工作区腐烂（Workspace Rot）** 就是代谢债违约的后果。腐烂的反面不是「空」，而是「对」——对的文件、对的时间、可验证的历史。
 
 ## 工具与链接
 
-参考实现是零依赖的 Python 命令行工具（v0.1.2，Windows / Linux / macOS）：
+参考实现是零依赖的 Python 命令行工具（v0.2.0，Windows / Linux / macOS）：
 
 ```bash
 pip install workspace-metabolism
@@ -98,11 +100,11 @@ wm --help
 
 PyPI：https://pypi.org/project/workspace-metabolism/
 
-Release：https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.1.2
+Release：https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.2.0
 
 ## 最后
 
-我提出这个框架，不是为了证明自己正确，而是想开启一场对话：**当 AI 编程成为常态，那些副产物到底应该被怎样对待？**
+提出这个框架，不是为了证明自己正确，而是想开启一场对话：**当 AI 编程成为常态，那些副产物到底应该被怎样对待？**
 
 记住一句话就行：**循环让 Agent 一直跑，代谢让工作区一直活。**
 

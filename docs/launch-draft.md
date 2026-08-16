@@ -32,6 +32,13 @@ Why: most tools either show you disk usage (ncdu) or delete files (rmlint).
 And the classic answer for "clean old files" is a cron script that calls
 `rm -rf` on a path.
 
+I ran 30 simulated agentic loops against two identical workspaces — one with
+`wm clean` after each loop, one without. The result: **2 active files vs 242**.
+The governed workspace kept exactly what it needed, moved everything else to a
+recyclable area, and passed hash-chain verification; the unmanaged one is a
+compost pile. Reproduce it yourself:
+`python examples/metabolism_benchmark.py`.
+
 Unlike `tmpreaper`/`tmpwatch` or hand-written cron scripts that issue a real
 `delete` call, **this tool never deletes during `clean`**. It moves expired
 items to a recycle area and records the move with per-file SHA-256 hashes. If
@@ -56,7 +63,7 @@ Links: [repo](https://github.com/metabolism-tools/workspace-metabolism) · [READ
 - Post Tuesday-Thursday, 09:00-12:00 US Eastern (= Beijing time 21:00-24:00)
 - Answer every comment quickly; ask for edge cases they hit
 - Wording on maturity: do NOT say "alpha". Say:
-  "It's early days (v0.1), so the policy schema might have minor tweaks
+  "It's early days (v0.2), so the policy schema might have minor tweaks
   before v1.0. I'm looking for early adopters to break it on weird directory
   structures."
 
@@ -82,7 +89,10 @@ Long story short: my workspace kept filling up, and I wanted cleanup I could tru
 
 It is pure stdlib (Python 3.11+), zero dependencies, and tests run on three OSes.
 
-It's early days (v0.1), so the policy schema might have minor tweaks before v1.0. I'm looking for early adopters to break it on weird directory structures.
+The repo ships a 30-loop benchmark: two identical workspaces, one governed by
+`wm clean`, one not — **2 active files vs 242**. Run it yourself in seconds.
+
+It's early days (v0.2), so the policy schema might have minor tweaks before v1.0. I'm looking for early adopters to break it on weird directory structures.
 
 What would you add before trusting it with real files?
 

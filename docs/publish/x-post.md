@@ -1,4 +1,4 @@
-# X（Twitter）英文发布文案（v0.1.2 最终版）
+# X（Twitter）英文发布文案（v0.2.0 最终版）
 
 > 发布前：发帖时间建议北京时间周二 21:00–24:00（= 美东上午 9:00–12:00）。
 > 每条帖子控制在 280 字以内（链接按 23 字计算）；发布后立刻在主页确认链接可点。
@@ -11,7 +11,7 @@
 >
 > Loops keep the agent running; metabolism keeps the workspace alive.
 >
-> I built workspace-metabolism v0.1.2: one policy file (G1–G4), recyclable clean, exact rollback, hash-chained audit.
+> I built workspace-metabolism v0.2.0: one policy file (G1–G4), recyclable clean, exact rollback, hash-chained audit.
 >
 > https://github.com/metabolism-tools/workspace-metabolism
 
@@ -43,6 +43,6 @@
 
 ## 小提示
 
-- 如果某条超了字数，先删「v0.1.2」「G1–G4」这类修饰。
+- 如果某条超了字数，先删「v0.2.0」「G1–G4」这类修饰。
 - 可以加话题：#Python #OpenSource #DevTools #AI
-- 主帖也可以直接指向 Release：https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.1.2
+- 主帖也可以直接指向 Release：https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.2.0

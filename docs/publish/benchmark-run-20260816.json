@@ -1,0 +1,43 @@
+{
+  "run_at": "2026-08-16T16:08:34+08:00",
+  "wm_version": "0.2.0",
+  "python_version": "3.12.13 (MSC v.1944 64 bit AMD64)",
+  "platform": "Windows (win32)",
+  "command": "python examples/metabolism_benchmark.py",
+  "benchmark_script_sha256": "d76e16ea01fdf03a3284f9015d86334579e6fab11e2dc472d11bfa2d7c112718",
+  "experiment_params": {
+    "loops": 30,
+    "files_per_loop": 8,
+    "retention_days": 7,
+    "age_days": 8,
+    "seed": 20260815
+  },
+  "result": {
+    "loops": 30,
+    "files_per_loop": 8,
+    "retention_days": 7,
+    "governed": {
+      "workspace_files": 2,
+      "workspace_size_mb": 0.0,
+      "candidates": 0,
+      "recycle_files": 240,
+      "recycle_mb": 0.4,
+      "journal_entries": 33,
+      "journal_chain_ok": true,
+      "audit_ms": 94.3
+    },
+    "ungoverned": {
+      "workspace_files": 242,
+      "workspace_size_mb": 0.4,
+      "candidates": 240,
+      "audit_ms": 105.3
+    },
+    "rollback": {
+      "run_id": "clean-20260816-160735-811521",
+      "restored_file": "run00_draft.py",
+      "hash_ok": true,
+      "ms": 82.1
+    },
+    "tmp_dir": "C:\\Users\\ͮͮ\\AppData\\Local\\Temp\\wm-bench-2aaqkn2x"
+  }
+}
