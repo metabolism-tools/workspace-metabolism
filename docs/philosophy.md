@@ -121,6 +121,25 @@ and what the workspace keeps, digests, and reabsorbs.
 Cleanup tools answer "what should be deleted". This project answers "what
 should be kept, recycled, or reactivated" — and makes that answer auditable.
 
+### 5.1 A closer look at adjacent AI-hygiene tools
+
+The table above groups zclean, agent-gc and vanish together; they deserve
+separate mention, because each solves a real but different problem. The
+comparison below is about the lifecycle model, not a judgement of the tools.
+
+| | zclean | agent-gc | vanish | workspace-metabolism |
+| --- | --- | --- | --- | --- |
+| Package | npm `@thestackai/zclean` | Rust / npm `agent-gc` | PyPI `vanish` | PyPI `workspace-metabolism` |
+| Main target | zombie/orphaned agent processes, MCP servers, dev caches | agent worktrees, duplicate dependencies, build artifacts | venv / node_modules / build caches across the home directory | any registered path in an AI-driven workspace |
+| Deletion model | deletes after dry-run + `--yes` | deletes | deletes | **never during `clean`**; recycle area, then `rollback` |
+| Policy file grades paths (G1–G4) | no | no | no | **yes** |
+| Recycle + exact rollback | no | no | no | **yes** |
+| Hash-chain audit + `verify` | no | no | no | **yes** |
+| Zero dependencies | yes (Node) | n/a (Rust) | n/a | yes (Python stdlib) |
+
+Based on public package descriptions and READMEs as of 2026-08-17; verify
+current details before quoting them.
+
 *Some AI-cleanup tools can be configured to move rather than delete; the
 difference remains that `workspace-metabolism` builds rollback and verification
 into its core model.

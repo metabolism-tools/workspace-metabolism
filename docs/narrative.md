@@ -208,7 +208,39 @@ A fresh reproduction record from 2026-08-16 (wm 0.2.0, Windows, Python 3.12)
 ships with the repo: [benchmark-run-20260816.json](publish/benchmark-run-20260816.json)
 (raw log: [benchmark-run-20260816.txt](publish/benchmark-run-20260816.txt)).
 
-## 8. The measure
+## 8. Related work and positioning
+
+A fair question is whether this framing is just repackaged cleanup, and how it
+relates to existing workspace work. The short answer is that each piece of
+related work operates on a different layer of the stack — and none of them
+governs the lifecycle of filesystem byproducts after each loop.
+
+| Work | What it does | Layer in this stack |
+| --- | --- | --- |
+| [LemonHarness](https://arxiv.org/abs/2606.24311) (2026) | Integrated runtime boundary for long-horizon agents: prompts, tool execution, traces and model calls inside one controlled workspace | L3 Harness |
+| [Workspace-Bench](https://arxiv.org/abs/2605.03596) (2026) | Benchmark for agents on workspace tasks with large-scale file dependencies | Evaluation of L2–L4, not L5 governance |
+| [AgentFold](https://arxiv.org/abs/2510.24699) (2025) | Proactive context management; treats the model's context as a cognitive workspace to be sculpted | L2 Context / L4 Loop |
+| tmpreaper / tmpwatch | Age-based deletion of temporary files | generic cleanup, not agent-specific |
+| zclean / agent-gc / vanish | AI-session hygiene: zombie processes, caches, worktrees and dependencies; delete-based | cleanup utilities, not lifecycle governance |
+| workspace-metabolism | Policy-graded file lifecycle: audit, recyclable clean, verified rollback, hash-chain audit | L5 Agentic Metabolic Engineering |
+
+Why this is not "an implementation of LemonHarness": LemonHarness constrains
+the runtime in which agents act; this project governs what remains in the
+filesystem after each loop. Workspace-Bench measures how well agents perform
+inside messy workspaces — it is a useful future evaluation venue, not a
+competing framework. AgentFold organizes the model's context, not the
+filesystem byproducts. Cleanup utilities answer "what should be deleted"; this
+framing answers "what should be kept, recycled, or reactivated, with a
+verifiable history".
+
+Positioning, stated honestly: the contribution here is engineering, not new
+theory. It is (a) a governance model — policy-as-code grades with safety
+invariants; (b) a reference implementation that never deletes during `clean`,
+rolls back exactly, and audits with a hash chain; (c) a reproducible
+measurement ritual (the 30-loop benchmark, the health score). Whether the
+vocabulary is adopted by others is up to the community and time, not to us.
+
+## 9. The measure
 
 A paradigm is only as good as its ability to be measured. Four metric groups
 cover the lifecycle:
@@ -233,7 +265,7 @@ becomes meaningful after the first `clean`. On Windows, replace `jq` with
 The far-term number is a **workspace health score**: one number combining the
 four groups — the same role a credit score plays for debt.
 
-## 9. The roadmap
+## 10. The roadmap
 
 - **Shipped**: CLI + policy file + scheduled runs; `wm init`; auto-discovery
   of `metabolism.json`; policy JSON Schema; `wm explain`; `wm health` (0-100);
@@ -251,7 +283,7 @@ four groups — the same role a credit score plays for debt.
 `workspace-metabolism` is the reference implementation, not the standard. The
 paradigm is bigger than the tool.
 
-## 10. The invitation
+## 11. The invitation
 
 We propose **Agentic Metabolic Engineering** as a framing — the fifth layer of
 the agentic stack, and the last mile of every loop. Call it Workspace

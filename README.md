@@ -11,6 +11,10 @@ verify — every step leaves a hash-chained audit trail. Python 3.11+,
 
 ▶️ Watch the 60-second animated demo: [docs/demo-terminal.html](docs/demo-terminal.html)
 
+**Status:** v0.2 — a proposal plus reference implementation. Early days: no
+external users yet, and the policy schema may shift before v1.0. Early adopters
+are welcome to break it on weird directory structures.
+
 ## Why this exists
 
 Most disk tools either show you space (`ncdu`, `duf`) or delete things
