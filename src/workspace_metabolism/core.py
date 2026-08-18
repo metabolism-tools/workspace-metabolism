@@ -460,6 +460,73 @@ def disk_status(root: Path) -> dict:
     }
 
 
+# Memory-backed filesystems: residue stored there costs RAM, not just disk
+# (e.g. /tmp on modern Linux is tmpfs; the Claude Code /tmp/claude-*-cwd leak
+# is a memory leak on such systems, not merely disk clutter).
+MEMORY_FS_TYPES = ("tmpfs", "ramfs")
+
+
+def parse_mounts(text: str) -> dict[str, str]:
+    """Parse a /proc/mounts-style table into {mountpoint: fstype}.
+
+    Only memory-backed filesystem types (tmpfs, ramfs) are kept. Pure
+    function over text so it can be unit-tested on any OS.
+    """
+    mounts: dict[str, str] = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        mountpoint, fstype = parts[1], parts[2]
+        if fstype in MEMORY_FS_TYPES:
+            mounts[mountpoint] = fstype
+    return mounts
+
+
+def memory_backed_mounts() -> dict[str, str]:
+    """Memory-backed mounts on this machine; {} where none are visible.
+
+    Linux reads /proc/self/mounts; macOS and Windows have no tmpfs/ramfs
+    by default and return {} (the feature degrades to a no-op there).
+    """
+    if os.name == "nt":
+        return {}
+    proc = Path("/proc/self/mounts")
+    if not proc.exists():
+        return {}
+    try:
+        return parse_mounts(proc.read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        return {}
+
+
+def _match_memory_mount(target: str, mounts: dict[str, str]) -> Optional[dict]:
+    """Longest-prefix match of a POSIX path against memory-backed mounts."""
+    best: Optional[tuple[int, str, str]] = None
+    for mountpoint, fstype in mounts.items():
+        mp = mountpoint.rstrip("/") or "/"
+        if target == mp or target.startswith(mp + "/"):
+            if best is None or len(mp) > best[0]:
+                best = (len(mp), mp, fstype)
+    if best is None:
+        return None
+    return {"mount": best[1], "fstype": best[2]}
+
+
+def memory_backed_info(path: Path | str, mounts: dict[str, str] | None = None) -> Optional[dict]:
+    """If a path lives on a memory-backed filesystem, describe it.
+
+    Returns {"mount": mountpoint, "fstype": fstype} for the longest matching
+    mount prefix, else None. Mount points are compared as POSIX paths; the
+    caller normally passes the dict from memory_backed_mounts().
+    """
+    mounts = mounts if mounts is not None else memory_backed_mounts()
+    if not mounts:
+        return None
+    target = Path(path).resolve().as_posix()
+    return _match_memory_mount(target, mounts)
+
+
 def find_references(root: Path, state_dir: Path | None, name: str) -> list[str]:
     """Locate code/docs references to a candidate name before G3 cleanup."""
     hits: list[str] = []
@@ -726,6 +793,26 @@ def audit(
     except ValueError:
         reg_rel = str(registry_path)
 
+    # memory-backed awareness: residue on tmpfs/ramfs costs RAM, not just disk
+    mem_mounts = memory_backed_mounts()
+    mem_workspace = memory_backed_info(root, mem_mounts)
+    mem_candidates = []
+    for c in candidates:
+        info = memory_backed_info(root / c["path"], mem_mounts)
+        if info:
+            mem_candidates.append(
+                {**info, "path": c["path"], "files": c["files"], "size": c["size"]}
+            )
+    memory = {
+        "mounts": mem_mounts,
+        "workspace": mem_workspace,
+        "candidates": mem_candidates,
+        "candidates_on_memory": len(mem_candidates),
+        "candidates_on_memory_mb": round(
+            sum(c["size"] for c in mem_candidates) / 1024 / 1024, 1
+        ),
+    }
+
     report = {
         "run_id": f"audit-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}",
         "ts": now_str(),
@@ -737,6 +824,7 @@ def audit(
         "sensitive": sensitive,
         "git": {"repo": tracked is not None, "tracked_files": len(tracked) if tracked else 0},
         "dup_hits": dup_hits,
+        "memory": memory,
         "registry_path": reg_rel,
     }
 
@@ -754,6 +842,7 @@ def audit(
         disk_used_pct=disk["used_pct"],
         disk_alert=disk_alert,
         growth_mb=growth_mb,
+        memory_candidates=len(mem_candidates),
     )
 
     journal_state = verify_journal(state_dir)
@@ -770,6 +859,8 @@ def audit(
         "unregistered": len(unregistered),
         "sensitive": len(sensitive),
         "disk_alert": disk_alert,
+        "memory_candidates": len(mem_candidates),
+        "workspace_on_memory": bool(mem_workspace),
         "recycle_files": recycle_files,
         "recycle_mb": round(recycle_size / 1024 / 1024, 1),
         "recycle_ratio_pct": round(recycle_size / total_size * 100, 1) if total_size else 0.0,
@@ -807,6 +898,19 @@ def render_report(report: dict, root: Path) -> str:
     if growth is not None:
         lines.append(f"- vs last audit: {'growth' if growth >= 0 else 'shrink'} {abs(growth)} MB")
     lines.append(f"- registry: {report['registry_path']}")
+    mem = report.get("memory") or {}
+    if mem.get("workspace"):
+        ws = mem["workspace"]
+        lines.append(
+            f"- memory-backed workspace: {ws['mount']} ({ws['fstype']}) "
+            "- residue here costs RAM, not just disk"
+        )
+    if mem.get("candidates_on_memory"):
+        lines.append(
+            f"- memory-backed candidates: {mem['candidates_on_memory']} item(s), "
+            f"{mem['candidates_on_memory_mb']} MB on {mem['workspace']['fstype'] if mem.get('workspace') else 'tmpfs/ramfs'} "
+            "(RAM, not disk)"
+        )
     summary = report.get("summary")
     if summary:
         chain = "OK" if summary["journal_chain_ok"] else "BROKEN"

@@ -25,8 +25,11 @@ Show HN: One JSON policy file controls file lifecycle: audit, recyclable clean, 
 
 **Body (paste into the first comment)**
 
-`workspace-metabolism` is a zero-dependency CLI (Python 3.11+) that manages the
-lifecycle of files in a workspace from a single policy file.
+`workspace-metabolism` is a zero-dependency CLI (Python 3.11+) that is the
+**policy layer for multi-agent workspaces**: Claude Code, Codex, Aider and
+OpenClaw all leave byproducts (temp files, caches, staging dirs) in the one
+thing they share — your workspace — and one JSON policy file governs the
+lifecycle of all of it.
 
 Why: most tools either show you disk usage (ncdu) or delete files (rmlint).
 And the classic answer for "clean old files" is a cron script that calls
@@ -77,7 +80,9 @@ Show /r/Python: I wrote a "safe delete" CLI that moves expired files to a recycl
 
 **Body**
 
-Long story short: my workspace kept filling up, and I wanted cleanup I could trust.
+Long story short: my workspace kept filling up — with temp files, caches and
+staging dirs left behind by the agents working in it — and I wanted cleanup I
+could trust.
 
 **How it works:**
 

@@ -56,7 +56,7 @@ v0.1.2 的英文 release 说明已整理好，见
 
 **正文（英文，直接粘贴）：**
 
-> `workspace-metabolism` is a zero-dependency CLI (Python 3.11+) that manages the lifecycle of files in an AI-driven workspace from a single policy file.
+> `workspace-metabolism` is a zero-dependency CLI (Python 3.11+) — the policy layer for multi-agent workspaces. Claude Code, Codex, Aider and OpenClaw all leave byproducts in the one thing they share: your workspace. One JSON policy file governs the lifecycle of all of it.
 >
 > **The one-liner:** loops keep the agent running; metabolism keeps the workspace alive.
 >
@@ -78,3 +78,14 @@ v0.1.2 的英文 release 说明已整理好，见
 > - [v0.2.0 release](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.2.0)
 >
 > v0.2.0 is early days; the policy schema may shift before v1.0. We'd love early adopters to break it on weird directory structures.
+
+## 四、v0.2.1 的 release 说明（英文草稿）
+
+v0.2.1 的英文 release 说明已整理好，见
+[docs/publish/release-notes-v0.2.1.md](release-notes-v0.2.1.md)。
+发布到 PyPI 后，把其中的英文正文粘贴到 GitHub Releases（tag `v0.2.1`）即可。
+
+v0.2.1 变更：`wm audit` 新增内存文件系统感知（tmpfs/ramfs = 占 RAM 而非磁盘，
+报告/摘要/journal/CLI 均有体现）；`examples/demo.py` 改为"盲删 vs 回收+回滚"对照；
+新增 `docs/positioning.md`（这个工具不是什么，源自 #8856 公开交锋）；对外一句话
+改为"多 agent 工作区的策略层"（置顶公告开头已同步更新）。

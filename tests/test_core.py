@@ -710,3 +710,76 @@ def test_clean_blocks_candidate_with_git_tracked_files(env, tmp_path: Path):
     assert items and items[0]["reason"] == "contains git-tracked files"
     m.clean(root, reg, state, {"G4"}, yes=True)
     assert (root / "cache_g4").exists()
+
+
+# ---------------------------------------------------------------------------
+# memory-backed (tmpfs/ramfs) awareness
+# ---------------------------------------------------------------------------
+
+
+def test_parse_mounts_keeps_only_memory_fs():
+    text = (
+        "/dev/sda1 / ext4 rw 0 0\n"
+        "tmpfs /tmp tmpfs rw,nosuid,nodev 0 0\n"
+        "tmpfs /dev/shm tmpfs rw 0 0\n"
+        "tmpfs /run tmpfs rw 0 0\n"
+        "ramfs /mnt/ram ramfs rw 0 0\n"
+        "cgroup2 /sys/fs/cgroup cgroup2 rw 0 0\n"
+        "tmpfs\n"  # malformed line, must be skipped
+    )
+    assert m.parse_mounts(text) == {
+        "/tmp": "tmpfs",
+        "/dev/shm": "tmpfs",
+        "/run": "tmpfs",
+        "/mnt/ram": "ramfs",
+    }
+
+
+def test_memory_backed_info_picks_longest_mount_prefix():
+    mounts = {"/": "tmpfs", "/tmp": "tmpfs", "/tmp/claude-user": "tmpfs"}
+    # pure string matching: independent of the host platform's path semantics
+    assert m._match_memory_mount("/tmp/claude-user/proj/scratch", mounts) == {
+        "mount": "/tmp/claude-user",
+        "fstype": "tmpfs",
+    }
+    assert m._match_memory_mount("/tmp/other", mounts)["mount"] == "/tmp"
+    assert m._match_memory_mount("/var/lib/x", mounts) is None
+    assert m._match_memory_mount("/", mounts)["mount"] == "/"
+
+
+def test_memory_backed_info_ignores_empty_mounts():
+    assert m.memory_backed_info("/tmp/x", {}) is None
+
+
+def test_memory_backed_mounts_noop_on_nt(monkeypatch):
+    monkeypatch.setattr(m.os, "name", "nt")
+    assert m.memory_backed_mounts() == {}
+
+
+def test_audit_reports_memory_backed_workspace_and_candidates(env, tmp_path: Path, monkeypatch):
+    root, state = env
+    make_old_dir(root, "cache_g4")
+    # simulate the whole workspace sitting on a memory-backed filesystem,
+    # whatever the platform (posix "/" or windows "C:/")
+    drive = str(root.drive + "/") if root.drive else "/"
+    monkeypatch.setattr(m, "memory_backed_mounts", lambda: {drive: "tmpfs"})
+    report, _ = m.audit(root, base_registry(tmp_path), state)
+    mem = report["memory"]
+    assert mem["workspace"] is not None
+    assert mem["workspace"]["fstype"] == "tmpfs"
+    assert mem["candidates_on_memory"] >= 1
+    assert sum(c["size"] for c in mem["candidates"]) > 0
+    assert report["summary"]["memory_candidates"] >= 1
+    assert report["summary"]["workspace_on_memory"] is True
+
+
+def test_audit_memory_section_present_and_empty_without_mounts(env, tmp_path: Path, monkeypatch):
+    root, state = env
+    make_old_dir(root, "cache_g4")
+    monkeypatch.setattr(m, "memory_backed_mounts", lambda: {})
+    report, _ = m.audit(root, base_registry(tmp_path), state)
+    mem = report["memory"]
+    assert mem["mounts"] == {}
+    assert mem["workspace"] is None
+    assert mem["candidates"] == []
+    assert report["summary"]["memory_candidates"] == 0

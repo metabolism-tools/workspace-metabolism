@@ -16,7 +16,11 @@ alive.**
 Agent loops changed what a workspace looks like. Generate, error, fix, repeat
 — every repetition leaves a trace: drafts, patches, lock files, test stubs,
 half-finished refactors, abandoned approaches that were never deleted. AI
-writes code like a fountain, and most workspaces have no drain.
+writes code like a fountain, and most workspaces have no drain. It is not one
+tool's fault: Claude Code, Codex, Aider and OpenClaw each leave their own temp
+files, caches and staging dirs in the same tree — so the workspace needs a
+policy layer that governs byproducts from every agent, not a patch for any
+single one.
 
 The classic answers don't work. `rm -rf` burns intermediate matter a future
 loop might need, along with its provenance. Git is too heavy for untracked,

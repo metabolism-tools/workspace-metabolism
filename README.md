@@ -11,7 +11,7 @@ verify — every step leaves a hash-chained audit trail. Python 3.11+,
 
 ▶️ Watch the 60-second animated demo: [docs/demo-terminal.html](docs/demo-terminal.html)
 
-**Status:** v0.2 — a proposal plus reference implementation. Early days: no
+**Status:** v0.2.1 — a proposal plus reference implementation. Early days: no
 external users yet, and the policy schema may shift before v1.0. Early adopters
 are welcome to break it on weird directory structures.
 
@@ -20,14 +20,19 @@ are welcome to break it on weird directory structures.
 Most disk tools either show you space (`ncdu`, `duf`) or delete things
 (`rmlint`). `workspace-metabolism` is different: a **policy file** defines what
 every path is worth (grades G1–G4), and the tool only ever does what the policy
-allows — nothing more.
+allows — nothing more. It is the **policy layer for multi-agent workspaces**:
+Claude Code, Codex, Aider, OpenClaw and every other agent share one thing —
+your workspace — and the policy governs the byproducts all of them leave
+behind, regardless of which tool created them. It fixes no vendor and judges
+no file; see [What this is not](docs/positioning.md) before you judge it.
 
 - **G1 never touch** / **G2 keep** / **G3 approve + reference check** / **G4 auto**
 - Deletion is never direct: items move to a recycle area, then `rollback`
   restores them after a per-file SHA-256 integrity check
 - Every action lands in a **hash-chained journal**; `verify` detects any edit
 - Read-only `audit` reports candidates, unregistered paths, disk alerts, growth
-  trend and possible duplicates
+  trend and possible duplicates — plus residue on **memory-backed mounts**
+  (tmpfs/ramfs: it costs RAM, not just disk)
 - Optional **protected window** (e.g. trading hours, business hours) during
   which marked entries are never touched
 - Scheduled runs are supported out of the box on Windows (Task Scheduler) and
@@ -47,6 +52,22 @@ you *at some point, files get removed*. `workspace-metabolism` gets you:
 Scheduling and metabolism are complementary, not rivals: this repo ships cron,
 Windows Task Scheduler and CI templates that run `wm` itself. The scheduler
 answers *when*; the policy answers *what, how, and how to undo it*.
+
+### What this is not
+
+Four objections come up so often they deserve their own page
+([docs/positioning.md](docs/positioning.md)). The short version:
+
+- **Not a fix for vendor bugs** — Claude Code's `/tmp` leak, OpenClaw's
+  staged-dir residue: those belong upstream. We govern the workspace, which
+  is the one thing every agent shares.
+- **Not a heuristic classifier** — no guessing, no AI judgment. Only the
+  policy file you wrote decides anything; `wm explain <path>` shows the rule.
+- **Not a rival to agent self-cleanup** — agents should clean up after
+  themselves; `wm mcp` + session-end hooks make that safe and audited.
+- **Not a blind-delete script** — nothing is ever deleted by pattern: items
+  move to a recycle area with per-file hashes, and `rollback` restores them.
+  `purge` is the only real delete, and only inside the recycle area.
 
 ## See it in action
 
@@ -86,7 +107,8 @@ pip install workspace-metabolism
 # or run without installing anything:
 #   PYTHONPATH=src python -m workspace_metabolism --help
 
-# try it on a throwaway workspace (builds demo files, runs status/audit/clean)
+# try it on a throwaway workspace (builds demo files; shows the usual
+# blind-delete fix vs the wm way: recycle + rollback + journal)
 python examples/demo.py
 ```
 

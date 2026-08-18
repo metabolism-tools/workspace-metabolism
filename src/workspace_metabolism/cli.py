@@ -175,6 +175,19 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  warning: {len(report['sensitive'])} sensitive file(s) found (see report)")
             if report.get("git", {}).get("repo"):
                 print(f"  git repo: {report['git']['tracked_files']} tracked file(s) treated as controlled")
+            mem = report.get("memory") or {}
+            if mem.get("candidates_on_memory"):
+                print(
+                    f"  memory-backed: {mem['candidates_on_memory']} candidate(s), "
+                    f"{mem['candidates_on_memory_mb']} MB on RAM-backed mounts "
+                    "(costs RAM, not just disk; see report)"
+                )
+            elif mem.get("workspace"):
+                ws = mem["workspace"]
+                print(
+                    f"  memory-backed: workspace sits on {ws['fstype']} ({ws['mount']}) "
+                    "- residue costs RAM, not just disk"
+                )
             print(f"report: {report_path}")
     elif args.command == "clean":
         grades = {g.strip().upper() for g in args.grades.split(",") if g.strip().upper() in {"G1", "G2", "G3", "G4"}}
