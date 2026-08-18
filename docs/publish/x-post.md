@@ -3,6 +3,13 @@
 > 发布前：发帖时间建议北京时间周二 21:00–24:00（= 美东上午 9:00–12:00）。
 > 每条帖子控制在 280 字以内（链接按 23 字计算）；发布后立刻在主页确认链接可点。
 
+## 配图（英文版，供 X 使用）
+
+- `images/four-phases-en.png`：四阶段主图
+- `images/stack-l5-en.png`：Agentic 工程栈 L5
+- `images/experiment-30-en.png`：30 轮对照实验数据卡
+- `images/scheduled-vs-metabolism-en.png`：定时清理与代谢系统对比（可选）
+
 ## 方式 A：主帖 + 3 条跟帖（推荐）
 
 **主帖：**

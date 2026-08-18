@@ -9,6 +9,10 @@ Outputs:
   docs/publish/images/four-phases-zh-v.png (1242x1656, portrait, Xiaohongshu)
   docs/publish/images/stack-l5-zh-v.png    (1242x1656, portrait, Xiaohongshu)
   docs/publish/images/experiment-30-zh-v.png (1242x1656, portrait, Xiaohongshu)
+  docs/publish/images/four-phases-en.png  (1536x864, landscape, X)
+  docs/publish/images/stack-l5-en.png     (1536x864, landscape, X)
+  docs/publish/images/experiment-30-en.png (1080x1080, square, X)
+  docs/publish/images/scheduled-vs-metabolism-en.png (1536x864, landscape, X)
 """
 
 from pathlib import Path
@@ -476,6 +480,144 @@ def scheduled_vs_metabolism_vertical():
     img.save(OUT / "scheduled-vs-metabolism-zh-v.png")
 
 
+def four_phases_en():
+    w, h = 1536, 864
+    img, d = new_canvas(w, h)
+    d.ellipse((-200, -260, 480, 360), fill=(22, 46, 44))
+    d.ellipse((1120, 620, 1760, 1260), fill=(20, 36, 56))
+
+    center_text(d, w // 2, 92, "Workspace Metabolism: Four Stages", font(58, bold=True), TEXT)
+    center_text(d, w // 2, 152, "Agentic Metabolic Engineering", font(30), MUTED)
+
+    phases = [
+        ("01", "Inspect", "audit", "wm audit", "Inspect only,\nnever modify"),
+        ("02", "Recycle", "clean", "wm clean", "Move to recycle area\nNever delete directly"),
+        ("03", "Verify", "verify", "wm verify", "Hash-chain journal\nTamper-evident audit"),
+        ("04", "Rollback", "rollback", "wm rollback", "Restore to workspace\nWaste becomes input"),
+    ]
+
+    margin, gap = 78, 58
+    cw = (w - margin * 2 - gap * 3) // 4
+    ch = 440
+    y0 = 250
+    for i, (num, title, kind, cmd, desc) in enumerate(phases):
+        x0 = margin + i * (cw + gap)
+        d.rounded_rectangle((x0, y0, x0 + cw, y0 + ch), radius=28, fill=CARD, outline=BORDER, width=2)
+        cx = x0 + cw // 2
+        center_text(d, cx, y0 + 56, num, font(30, bold=True), ACCENT)
+        center_text(d, cx, y0 + 128, title, font(42, bold=True), TEXT)
+        center_text(d, cx, y0 + 182, kind, font(28), MUTED)
+        d.rounded_rectangle((x0 + 46, y0 + 218, x0 + cw - 46, y0 + 272), radius=27, fill=CARD_LIGHT)
+        center_text(d, cx, y0 + 245, cmd, font(26, code=True), CYAN)
+        yy = y0 + 320
+        for line in desc.split("\n"):
+            center_text(d, cx, yy, line, font(24), TEXT)
+            yy += 46
+        if i < 3:
+            arrow(d, x0 + cw + 6, y0 + ch // 2, x0 + cw + gap - 6)
+
+    img.save(OUT / "four-phases-en.png")
+
+
+def stack_l5_en():
+    w, h = 1536, 864
+    img, d = new_canvas(w, h)
+    d.ellipse((1090, -280, 1760, 380), fill=(24, 52, 48))
+
+    center_text(d, w // 2, 82, "The Fifth Layer of the Agentic Stack", font(58, bold=True), TEXT)
+    center_text(d, w // 2, 142, "L5 · Agentic Metabolic Engineering", font(30), MUTED)
+
+    layers = [
+        ("L1", "Prompt Engineering", "What do we tell the model?", False),
+        ("L2", "Context Engineering", "What do we give the model to read?", False),
+        ("L3", "Harness Engineering", "How do we make the agent reliable?", False),
+        ("L4", "Loop Engineering", "How does the agent keep running?", False),
+        ("L5", "Agentic Metabolic Engineering", "What happens to byproducts after each loop?", True),
+    ]
+
+    bw, bh, gap = 1240, 100, 20
+    x0 = (w - bw) // 2
+    y0 = 210
+    for i, (num, name, question, hot) in enumerate(layers):
+        y = y0 + i * (bh + gap)
+        fill = CARD_LIGHT if hot else CARD
+        outline = ACCENT if hot else BORDER
+        d.rounded_rectangle((x0, y, x0 + bw, y + bh), radius=22, fill=fill, outline=outline, width=3 if hot else 2)
+        d.rounded_rectangle((x0 + 12, y + 12, x0 + 96, y + bh - 12), radius=16, fill=CARD if hot else (19, 26, 38))
+        center_text(d, x0 + 54, y + bh // 2, num, font(30, bold=True), ACCENT if hot else CYAN)
+        center_text(d, x0 + 300, y + bh // 2, name, font(27 if i == 4 else 28, bold=True), TEXT)
+        center_text(d, x0 + bw - 280, y + bh // 2, question, font(25), ACCENT if hot else TEXT)
+
+    img.save(OUT / "stack-l5-en.png")
+
+
+def experiment_30_en():
+    w, h = 1080, 1080
+    img, d = new_canvas(w, h)
+    d.ellipse((-220, -260, 460, 420), fill=(23, 50, 46))
+    d.ellipse((760, 820, 1380, 1440), fill=(22, 38, 58))
+
+    badge = "30-Loop Controlled Experiment · Reproducible"
+    bf = font(30, bold=True)
+    bw = int(d.textlength(badge, font=bf)) + 64
+    center_rect(d, w // 2, 120, bw, 78, 39, CARD_LIGHT, outline=BORDER, width=2)
+    center_text(d, w // 2, 120, badge, bf, ACCENT)
+    center_text(d, w // 2, 218, "Two identical workspaces, 30 AI loops each", font(40, bold=True), TEXT)
+
+    panel_w, panel_h = 450, 470
+    y0 = 330
+    x1, x2 = 70, 560
+    big = font(170, bold=True)
+    small = font(40, bold=True)
+    sub = font(28)
+
+    d.rounded_rectangle((x1, y0, x1 + panel_w, y0 + panel_h), radius=30, fill=CARD, outline=ACCENT, width=3)
+    center_text(d, x1 + panel_w // 2, y0 + 70, "Governed", small, ACCENT)
+    center_text(d, x1 + panel_w // 2, y0 + 210, "2", big, TEXT)
+    center_text(d, x1 + panel_w // 2, y0 + 310, "files", small, MUTED)
+    center_text(d, x1 + panel_w // 2, y0 + 392, "Always clean, fully recoverable", sub, MUTED)
+
+    d.rounded_rectangle((x2, y0, x2 + panel_w, y0 + panel_h), radius=30, fill=CARD, outline=RED, width=3)
+    center_text(d, x2 + panel_w // 2, y0 + 70, "Ungoverned", small, RED)
+    center_text(d, x2 + panel_w // 2, y0 + 210, "242", big, TEXT)
+    center_text(d, x2 + panel_w // 2, y0 + 310, "files", small, MUTED)
+    center_text(d, x2 + panel_w // 2, y0 + 392, "240 expired candidates", sub, RED)
+
+    center_text(d, w // 2, 890, "Loops keep agents running. Metabolism keeps workspaces alive.", font(26, bold=True), ACCENT)
+    center_text(d, w // 2, 958, "examples/metabolism_benchmark.py", font(26, code=True), MUTED)
+
+    img.save(OUT / "experiment-30-en.png")
+
+
+def scheduled_vs_metabolism_en():
+    w, h = 1536, 864
+    img, d = new_canvas(w, h)
+    d.ellipse((-200, -260, 480, 360), fill=(22, 46, 44))
+    d.ellipse((1120, 620, 1760, 1260), fill=(20, 36, 56))
+
+    center_text(d, w // 2, 92, "Scheduled Cleanup != a Metabolism System", font(54, bold=True), TEXT)
+    center_text(d, w // 2, 152, "Scheduling answers WHEN · policy answers WHAT, HOW, and HOW TO UNDO", font(26), MUTED)
+
+    panels = [
+        (
+            "Scheduled Cleanup",
+            ["Rules live in the conversation", "Deletion is irreversible", "No recycle area", "Only answers: delete when?"],
+            RED,
+        ),
+        (
+            "Metabolism System",
+            ["Policy is reviewable and versioned", "Recycle area + SHA-256", "Hash-chain audit catches tampering", "Same behavior on every run"],
+            ACCENT,
+        ),
+    ]
+    _comparison_panels(d, w, panels, 230, 620, 470, 50, font(40, bold=True), font(26), 86)
+
+    center_text(d, w // 2, 772, "The scheduler is the alarm clock. Policy is the digestive system.", font(30, bold=True), ACCENT)
+    center_text(d, w // 2, 830, "cron · Task Scheduler · CI can all run wm on a schedule", font(20), MUTED)
+
+    img.save(OUT / "scheduled-vs-metabolism-en.png")
+
+
 if __name__ == "__main__":
     cover(["循环让 Agent 一直跑，", "代谢让工作区一直活"], "cover-zh.png")
     cover(["AI 写代码后，", "工作区谁来收拾？"], "cover-alt-zh.png")
@@ -487,4 +629,8 @@ if __name__ == "__main__":
     experiment_30_vertical()
     scheduled_vs_metabolism()
     scheduled_vs_metabolism_vertical()
+    four_phases_en()
+    stack_l5_en()
+    experiment_30_en()
+    scheduled_vs_metabolism_en()
     print("saved to", OUT)
