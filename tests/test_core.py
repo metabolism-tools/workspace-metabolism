@@ -1,5 +1,7 @@
 import json
 import os
+import shutil
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -580,3 +582,131 @@ def test_default_state_dir_falls_back_to_home(tmp_path: Path):
     s = m._default_state_dir_str("posix", {})
     assert s.endswith("workspace-metabolism")
     assert home not in s  # real home is used, not the fake one; just sanity-check shape
+
+
+# ---------------------------------------------------------------------------
+# sensitive files (secrets/keys/credentials)
+# ---------------------------------------------------------------------------
+
+
+def test_registry_rejects_sensitive_g4(tmp_path: Path):
+    reg = tmp_path / "r.json"
+    write_registry(reg, [{"path": ".env", "grade": "G4", "cleanup": "auto", "retention_days": 1}])
+    with pytest.raises(SystemExit, match="sensitive"):
+        m.load_registry(reg)
+
+
+def test_registry_allows_sensitive_as_g1(tmp_path: Path):
+    reg = tmp_path / "r.json"
+    write_registry(reg, [{"path": ".env", "grade": "G1", "cleanup": "never"}])
+    assert m.load_registry(reg)["entries"][0]["grade"] == "G1"
+
+
+def test_is_sensitive_path_matches_names():
+    assert m.is_sensitive_path(".env")
+    assert m.is_sensitive_path("sub/.env.local")
+    assert m.is_sensitive_path("creds/aws-credentials.json")
+    assert m.is_sensitive_path("logs/token.txt")
+    assert not m.is_sensitive_path("src/main.py")
+    assert not m.is_sensitive_path("docs/notes.md")
+
+
+def test_audit_reports_sensitive_files(env, tmp_path: Path):
+    root, state = env
+    (root / ".env").write_text("TOKEN=secret", encoding="utf-8")
+    logs = root / "logs"
+    logs.mkdir()
+    (logs / "token.txt").write_text("x", encoding="utf-8")
+    reg = base_registry(tmp_path)
+    report, _ = m.audit(root, reg, state)
+    paths = {s["path"] for s in report["sensitive"]}
+    assert ".env" in paths
+    assert "logs/token.txt" in paths
+    assert report["summary"]["sensitive"] >= 2
+    rendered = m.render_report(report, root)
+    assert "## Sensitive files" in rendered
+    assert "`.env`" in rendered
+
+
+def test_clean_blocks_candidate_with_sensitive_files(env, tmp_path: Path):
+    root, state = env
+    src = make_old_dir(root, "cache_g4")
+    sensitive = src / "token.txt"
+    sensitive.write_text("x", encoding="utf-8")
+    old = datetime.now().timestamp() - 40 * 86400
+    os.utime(sensitive, (old, old))
+    os.utime(src, (old, old))
+    reg = base_registry(tmp_path)
+    items = m.plan_items(root, m.load_registry(reg), {"G4"}, state)
+    assert items and items[0]["reason"] == "contains sensitive files"
+    m.clean(root, reg, state, {"G4"}, yes=True)
+    assert src.exists()
+
+
+def test_init_policy_never_clean_includes_sensitive(tmp_path: Path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    path = m.init_policy(root, root / "metabolism.json")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert ".env" in data["never_clean"]
+    assert "*.pem" in data["never_clean"]
+
+
+# ---------------------------------------------------------------------------
+# git-aware classification (tracked files are controlled by git)
+# ---------------------------------------------------------------------------
+
+
+def _git_init(root: Path) -> None:
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+    subprocess.run(
+        [
+            "git", "-C", str(root),
+            "-c", "user.email=wm-test@example.com", "-c", "user.name=wm-test",
+            "commit", "-qm", "init",
+        ],
+        check=True,
+    )
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
+def test_git_tracked_files_lists_repo_content(env, tmp_path: Path):
+    root, state = env
+    (root / "tracked.py").write_text("x = 1", encoding="utf-8")
+    _git_init(root)
+    tracked = m.git_tracked_files(root)
+    assert tracked is not None
+    assert "tracked.py" in tracked
+
+
+def test_git_tracked_files_returns_none_without_git(env):
+    root, _ = env
+    assert m.git_tracked_files(root) is None
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
+def test_audit_git_aware_unregistered_skips_tracked(env, tmp_path: Path):
+    root, state = env
+    (root / "tracked.py").write_text("x = 1", encoding="utf-8")
+    (root / "untracked_dir").mkdir()
+    _git_init(root)
+    (root / "untracked_dir" / "new.txt").write_text("y", encoding="utf-8")
+    reg = base_registry(tmp_path)
+    report, _ = m.audit(root, reg, state)
+    assert report["git"]["repo"] is True
+    assert report["git"]["tracked_files"] >= 1
+    assert "tracked.py" not in report["unregistered"]
+    assert "untracked_dir" in report["unregistered"]
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
+def test_clean_blocks_candidate_with_git_tracked_files(env, tmp_path: Path):
+    root, state = env
+    make_old_dir(root, "cache_g4")
+    _git_init(root)
+    reg = base_registry(tmp_path)
+    items = m.plan_items(root, m.load_registry(reg), {"G4"}, state)
+    assert items and items[0]["reason"] == "contains git-tracked files"
+    m.clean(root, reg, state, {"G4"}, yes=True)
+    assert (root / "cache_g4").exists()

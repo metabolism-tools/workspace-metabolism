@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Iterator, Optional
@@ -34,6 +35,16 @@ POLICY_FILENAMES = ("metabolism.json", ".wm.json")
 MAX_HASH_MB = 256
 MAX_HASH_FILES = 5000
 GENESIS = "GENESIS"
+# Files that look like secrets/keys/credentials. Used two ways: (a) audit
+# reports them in a dedicated "Sensitive files" section, (b) load_registry
+# refuses to register a matching entry path as G4 auto-clean. Advisory
+# matching by basename; false positives only ever produce a warning or a
+# validation error with a clear message, never a deletion.
+SENSITIVE_PATTERNS = (
+    ".env", ".env.*", "*.pem", "*.key", "*.p12", "*.pfx", "*.keystore",
+    "*credential*", "*secret*", "*token*", "*password*", "*.htpasswd",
+    "id_rsa", "id_ed25519", ".netrc", ".npmrc",
+)
 
 
 def utc_now_iso() -> str:
@@ -107,6 +118,11 @@ def load_registry(registry_path: Path) -> dict:
             raise SystemExit(f"invalid registry entry cleanup: {entry}")
         if cleanup != "never" and not entry.get("retention_days"):
             raise SystemExit(f"entry requires retention_days: {path}")
+        if grade == "G4" and cleanup == "auto" and is_sensitive_path(path):
+            raise SystemExit(
+                f"refusing G4 auto-clean for sensitive path: {path} "
+                "(secrets/keys/credentials must never be auto-cleaned; use G1/G2/G3)"
+            )
     return data
 
 
@@ -123,6 +139,9 @@ def init_policy(root: Path, path: Path, force: bool = False) -> Path:
         "docker-compose.yml", "compose.yaml", "justfile", ".github", ".venv",
         "CONTRIBUTING.md", "ROADMAP.md", "CHANGELOG.md", "SECURITY.md",
         "AGENTS.md", "NOTICE",
+        # sensitive by default: secrets/keys/credentials are never auto-cleaned
+        ".env", ".env.*", "*.pem", "*.key", "id_rsa", "id_ed25519",
+        ".netrc", ".npmrc",
     ]
     keep_dirs = {
         "src", "docs", "tests", "test", "app", "lib", "include", "config",
@@ -200,6 +219,86 @@ def entry_covers(entry: dict, rel: Path) -> bool:
 
 def covered_by_any(registry: dict, rel: Path) -> bool:
     return any(entry_covers(e, rel) for e in registry["entries"])
+
+
+def is_sensitive_path(rel: Path | str) -> bool:
+    """Whether a relative path looks like a sensitive file (secrets, keys, credentials).
+
+    Matches on the basename and on the full relative path against
+    SENSITIVE_PATTERNS; used for advisory reporting and for refusing G4
+    auto-clean registration, never for deletion by itself.
+    """
+    rel_s = rel.as_posix() if isinstance(rel, Path) else rel
+    base = rel_s.rsplit("/", 1)[-1]
+    return any(
+        fnmatch.fnmatch(base, pattern) or fnmatch.fnmatch(rel_s, pattern)
+        for pattern in SENSITIVE_PATTERNS
+    )
+
+
+def sensitive_under(root: Path, rel: Path) -> bool:
+    """Whether a candidate target (file or tree) contains any sensitive file."""
+    target = root / rel
+    if target.is_file():
+        return is_sensitive_path(rel)
+    if not target.is_dir():
+        return False
+    for dirpath, dirnames, filenames in os.walk(target):
+        dirnames[:] = [d for d in dirnames if d != ".git"]
+        for fname in filenames:
+            if is_sensitive_path(Path(dirpath).relative_to(root) / fname):
+                return True
+    return False
+
+
+def scan_sensitive_files(root: Path, state_dir: Path | None = None) -> list[dict]:
+    """Find workspace files whose names match sensitive patterns (secrets/keys)."""
+    hits: list[dict] = []
+    state = Path(state_dir) if state_dir else None
+    for dirpath, dirnames, filenames in os.walk(root):
+        dp = Path(dirpath)
+        dirnames[:] = [d for d in dirnames if d != ".git"]
+        if state is not None and (dp == state or dp.is_relative_to(state)):
+            dirnames[:] = []
+            continue
+        for fname in filenames:
+            rel = dp.relative_to(root) / fname
+            if not is_sensitive_path(rel):
+                continue
+            try:
+                size = (dp / fname).stat().st_size
+            except OSError:
+                size = 0
+            hits.append({"path": rel.as_posix(), "size": size})
+    return sorted(hits, key=lambda hit: hit["path"])
+
+
+def git_tracked_files(root: Path) -> Optional[set[str]]:
+    """Set of git-tracked relative posix paths, or None when not a git repo.
+
+    Uses `git ls-files -z` via subprocess; returns None (and callers fall
+    back to pure policy matching) when there is no .git directory, git is
+    not installed, or the command fails. Git is optional, never required.
+    """
+    if not (root / ".git").exists():
+        return None
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z"],
+            capture_output=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    raw = proc.stdout.decode("utf-8", errors="replace")
+    return {p for p in raw.split("\0") if p}
+
+
+def tracked_under(tracked: set[str], rel_s: str) -> bool:
+    """Whether any tracked path equals a candidate path or lives under it."""
+    return any(p == rel_s or p.startswith(rel_s + "/") for p in tracked)
 
 
 def iter_entry_targets(root: Path, entry: dict) -> Iterator[tuple[Path, bool]]:
@@ -587,6 +686,18 @@ def audit(
             continue
         unregistered.append(name)
 
+    # git-aware classification: in a git repo, tracked files are controlled
+    # by git (effectively G2), so they are not "unregistered" drift
+    tracked = git_tracked_files(root)
+    if tracked is not None:
+        unregistered = [
+            name
+            for name in unregistered
+            if not any(p == name or p.startswith(name + "/") for p in tracked)
+        ]
+
+    sensitive = scan_sensitive_files(root, state_dir)
+
     dup_hits: list[tuple[str, list[str]]] = []
     if dupes:
         dupe_dirs = [root / d for d in defaults.get("dupe_scan_dirs", [])]
@@ -623,6 +734,8 @@ def audit(
         "growth_mb_since_last_audit": growth_mb,
         "candidates": candidates,
         "unregistered": unregistered,
+        "sensitive": sensitive,
+        "git": {"repo": tracked is not None, "tracked_files": len(tracked) if tracked else 0},
         "dup_hits": dup_hits,
         "registry_path": reg_rel,
     }
@@ -636,6 +749,7 @@ def audit(
         workspace_size=total_size,
         candidates=len(candidates),
         unregistered=len(unregistered),
+        sensitive=len(sensitive),
         disk_free_gb=disk["free_gb"],
         disk_used_pct=disk["used_pct"],
         disk_alert=disk_alert,
@@ -654,6 +768,7 @@ def audit(
         "candidates_g4_mb": round(g4_mb, 1),
         "candidates_g3_mb": round(g3_mb, 1),
         "unregistered": len(unregistered),
+        "sensitive": len(sensitive),
         "disk_alert": disk_alert,
         "recycle_files": recycle_files,
         "recycle_mb": round(recycle_size / 1024 / 1024, 1),
@@ -721,6 +836,12 @@ def render_report(report: dict, root: Path) -> str:
     lines.append("")
     lines.append("、".join(report["unregistered"]) if report["unregistered"] else "(none)")
     lines.append("")
+    if report["sensitive"]:
+        lines.append("## Sensitive files (secrets/keys/credentials - never auto-clean these)")
+        lines.append("")
+        for s in report["sensitive"]:
+            lines.append(f"- `{s['path']}` ({s['size']/1024:.1f} KB)")
+        lines.append("")
     if report["dup_hits"]:
         lines.append("## Possible duplicates (same name+size, not hash-verified)")
         lines.append("")
@@ -762,6 +883,7 @@ def plan_items(
     window_active = in_protected_window(now, window)
     never_clean = registry.get("never_clean", [])
     never_registry = {"entries": [{"path": p, "grade": "G1", "cleanup": "never"} for p in never_clean]}
+    tracked = git_tracked_files(root)
     items: list[dict] = []
     for c in collect_candidates(root, registry, now):
         if c["grade"] not in grades:
@@ -774,6 +896,10 @@ def plan_items(
             reason = f"exceeds single-item limit ({max_mb} MB)"
         elif c.get("protected") and window_active:
             reason = "inside protected window"
+        elif tracked is not None and tracked_under(tracked, c["path"]):
+            reason = "contains git-tracked files"
+        elif sensitive_under(root, rel):
+            reason = "contains sensitive files"
         elif c["grade"] == "G3":
             refs = find_references(root, state_dir, rel.name)
             if refs:

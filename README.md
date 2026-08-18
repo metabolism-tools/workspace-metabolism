@@ -73,7 +73,9 @@ metabolism is the frame. The one-liner: **loops keep the agent running;
 metabolism keeps the workspace alive.** We call this framing **Agentic
 Metabolic Engineering**
 — managing the byproducts of agent-driven software workspaces. Full write-up:
-[docs/philosophy.md](docs/philosophy.md) · [the story](docs/narrative.md).
+[docs/philosophy.md](docs/philosophy.md) · [the story](docs/narrative.md) ·
+[competitive analysis](docs/competitive-analysis.md) ·
+[academic anchors](docs/academic-anchors.md).
 
 ## Quick start
 
@@ -112,7 +114,7 @@ policy file. Advanced users can start from
 
 | Command | What it does |
 | --- | --- |
-| `audit` | Read-only health check; writes a report and a journal entry |
+| `audit` | Read-only health check; writes a report and a journal entry (also flags sensitive files and git-tracked content) |
 | `clean --grades G4` | Move expired items to the recycle area (dry-run by default) |
 | `clean --grades G3` | Same, but requires `--approve` + `--approver` |
 | `rollback <run_id>` | Restore one cleanup run after an integrity check |
@@ -205,6 +207,14 @@ session-end hook so every loop ends with a checkup.
 
 - `clean` is dry-run unless `--yes` is given.
 - G4 needs `--yes`; G3 needs `--approve` **and** `--approver` (audit trail).
+- **Sensitive files are never auto-cleaned**: `audit` flags secrets/keys/credentials
+  (`.env*`, `*.pem`, `*.key`, `*token*`, `*secret*`, `*credential*`, `id_rsa`, …) in a
+  dedicated report section, the policy validator refuses to register a sensitive path
+  as G4 auto-clean, and `clean` skips any candidate that contains sensitive files.
+- **Git-aware classification**: in a git repo, tracked files count as controlled by git
+  (effectively G2) — they are excluded from the audit's unregistered list, and `clean`
+  skips candidates that contain git-tracked files. Non-git workspaces fall back to pure
+  policy matching. (Git is optional; `wm` never depends on it.)
 - Items move to the recycle area with per-file SHA-256 hashes; `rollback`
   verifies them before restoring and refuses to overwrite an existing path.
 - `purge` is the only command that truly deletes, and only inside the recycle

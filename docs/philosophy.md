@@ -138,7 +138,9 @@ comparison below is about the lifecycle model, not a judgement of the tools.
 | Zero dependencies | yes (Node) | n/a (Rust) | n/a | yes (Python stdlib) |
 
 Based on public package descriptions and READMEs as of 2026-08-17; verify
-current details before quoting them.
+current details before quoting them. *Caveat: `vanish` (PyPI) could not be
+independently verified during the 2026-08 competitive research sweep — the
+row above reflects its self-description only.*
 
 *Some AI-cleanup tools can be configured to move rather than delete; the
 difference remains that `workspace-metabolism` builds rollback and verification

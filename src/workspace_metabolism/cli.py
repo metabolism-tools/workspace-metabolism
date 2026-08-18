@@ -171,6 +171,10 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, ensure_ascii=False, indent=2))
         else:
             print(f"audit done: {len(report['candidates'])} candidate(s), {len(report['unregistered'])} unregistered")
+            if report.get("sensitive"):
+                print(f"  warning: {len(report['sensitive'])} sensitive file(s) found (see report)")
+            if report.get("git", {}).get("repo"):
+                print(f"  git repo: {report['git']['tracked_files']} tracked file(s) treated as controlled")
             print(f"report: {report_path}")
     elif args.command == "clean":
         grades = {g.strip().upper() for g in args.grades.split(",") if g.strip().upper() in {"G1", "G2", "G3", "G4"}}
