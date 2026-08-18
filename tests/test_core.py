@@ -743,8 +743,29 @@ def test_memory_backed_info_picks_longest_mount_prefix():
         "fstype": "tmpfs",
     }
     assert m._match_memory_mount("/tmp/other", mounts)["mount"] == "/tmp"
-    assert m._match_memory_mount("/var/lib/x", mounts) is None
     assert m._match_memory_mount("/", mounts)["mount"] == "/"
+    # a path covered by no memory-backed mount at all matches nothing
+    assert (
+        m._match_memory_mount("/var/lib/x", {"/tmp": "tmpfs", "/tmp/claude-user": "tmpfs"})
+        is None
+    )
+
+
+def test_memory_backed_root_mount_matches_any_absolute_path():
+    # the whole filesystem on tmpfs (the case CI hit: an audit run whose
+    # workspace lives under /tmp while only "/" is reported as memory-backed)
+    assert m._match_memory_mount("/tmp/pytest-0/ws", {"/": "tmpfs"}) == {
+        "mount": "/",
+        "fstype": "tmpfs",
+    }
+    assert m._match_memory_mount("/var/lib/other", {"/": "tmpfs"}) == {
+        "mount": "/",
+        "fstype": "tmpfs",
+    }
+    # a deeper tmpfs mount still wins over the root mount
+    assert m._match_memory_mount(
+        "/tmp/claude-user/proj", {"/": "ramfs", "/tmp": "tmpfs"}
+    )["mount"] == "/tmp"
 
 
 def test_memory_backed_info_ignores_empty_mounts():

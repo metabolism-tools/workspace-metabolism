@@ -505,9 +505,14 @@ def _match_memory_mount(target: str, mounts: dict[str, str]) -> Optional[dict]:
     best: Optional[tuple[int, str, str]] = None
     for mountpoint, fstype in mounts.items():
         mp = mountpoint.rstrip("/") or "/"
-        if target == mp or target.startswith(mp + "/"):
-            if best is None or len(mp) > best[0]:
-                best = (len(mp), mp, fstype)
+        if mp == "/":
+            # the root mount covers every absolute path; the naive
+            # target.startswith(mp + "/") would demand "//" and never match
+            matched = target.startswith("/")
+        else:
+            matched = target == mp or target.startswith(mp + "/")
+        if matched and (best is None or len(mp) > best[0]):
+            best = (len(mp), mp, fstype)
     if best is None:
         return None
     return {"mount": best[1], "fstype": best[2]}
