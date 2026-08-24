@@ -117,6 +117,7 @@ Point the tool at your own workspace:
 ```bash
 cd /path/to/workspace
 wm init            # scaffold metabolism.json (like `git init`)
+wm doctor          # check readiness before the first audit or cleanup
 wm audit           # first checkup (read-only)
 wm health          # workspace health score (0-100)
 wm explain logs    # why a path is graded the way it is
@@ -146,6 +147,7 @@ policy file. Advanced users can start from
 | `init` | Scaffold a `metabolism.json` policy file (like `git init`) |
 | `explain <path>` | Show what the policy says about a path (the nutrition label) |
 | `health` | Workspace health score (0-100), with `--json` and `--badge` output |
+| `doctor` | Read-only readiness check for the workspace, policy, state directory and active locks |
 | `mcp` | MCP stdio server so agents can run micro-metabolism themselves |
 
 Global flags:
@@ -160,6 +162,12 @@ Global flags:
 The default state directory lives outside the workspace on purpose — a
 `git add .` in your project can never sweep the audit journal into version
 control.
+
+`wm doctor` is a read-only preflight check. It reports whether the workspace
+and state directory are writable, whether the policy exists and is valid, and
+whether another `wm` operation currently holds the state lock. The lock
+serializes audits, cleanup, rollback and purge so concurrent scheduled or
+agent-triggered runs cannot interleave journal and recycle operations.
 
 ## Policy file
 

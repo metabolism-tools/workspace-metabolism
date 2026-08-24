@@ -13,6 +13,7 @@ from .core import (
     audit,
     clean,
     default_state_dir,
+    doctor,
     explain,
     health_score,
     init_policy,
@@ -121,6 +122,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_health.add_argument("--json", action="store_true", help="print the score breakdown as JSON")
     p_health.add_argument("--badge", action="store_true", help="print a shields.io badge JSON")
 
+    p_doctor = sub.add_parser("doctor", help="check workspace readiness without changing files")
+    p_doctor.add_argument("--json", action="store_true", help="print the check as JSON")
+
     sub.add_parser("mcp", help="run the MCP stdio server so agents can run micro-metabolism")
 
     return parser
@@ -152,6 +156,38 @@ def main(argv: list[str] | None = None) -> int:
         print("  wm explain <path> - why a path is graded the way it is")
         print("edit the policy file and commit it like any source file")
         return 0
+
+    if args.command == "doctor":
+        result = doctor(root, registry_path, state_dir)
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            checks = [
+                ("workspace writable", result["root_writable"]),
+                ("state directory writable", result["state_dir_writable"]),
+                ("policy present", result["registry_present"]),
+                ("policy valid", result["registry_valid"]),
+                ("state lock free", not result["lock_busy"]),
+            ]
+            for label, ok in checks:
+                print(f"{'OK' if ok else 'FAIL'}: {label}")
+            if result["git_repo"]:
+                print(f"INFO: git repository, {result['git_tracked_files']} tracked file(s)")
+            if result["registry_error"]:
+                print(f"ERROR: {result['registry_error']}")
+            if result["missing_registry"]:
+                print("NEXT: run `wm init` or pass --registry")
+            if result["candidates"] is not None:
+                print(
+                    f"INFO: {result['candidates']} candidate(s), "
+                    f"{result['unregistered']} unregistered top-level item(s), "
+                    f"{result['sensitive']} sensitive file(s)"
+                )
+            if result["workspace_on_memory"]:
+                print("WARNING: workspace is on a memory-backed filesystem")
+            if result["state_on_memory"]:
+                print("WARNING: state directory is on a memory-backed filesystem")
+        return 0 if result["root_writable"] and result["state_dir_writable"] and result["registry_valid"] and not result["lock_busy"] else 1
 
     if args.command in ("audit", "clean", "status", "explain", "health") and registry_path is None:
         raise SystemExit(

@@ -14,6 +14,7 @@ Zero third-party dependencies (Python >= 3.11 standard library only).
 
 from __future__ import annotations
 
+import contextlib
 import fnmatch
 import hashlib
 import json
@@ -21,7 +22,7 @@ import os
 import shutil
 import subprocess
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Iterator, Optional
 
 GRADES = {"G1", "G2", "G3", "G4"}
@@ -105,7 +106,10 @@ def in_protected_window(now: datetime | None, window: tuple[int, int] | None) ->
 def load_registry(registry_path: Path) -> dict:
     if not registry_path.exists():
         raise SystemExit(f"registry not found: {registry_path} (see examples/registry.example.json)")
-    data = json.loads(registry_path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(registry_path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"invalid registry JSON: {registry_path} ({exc})") from exc
     if data.get("version") != 1 or "entries" not in data:
         raise SystemExit(f"invalid registry format: {registry_path}")
     for entry in data["entries"]:
@@ -114,6 +118,7 @@ def load_registry(registry_path: Path) -> dict:
         cleanup = entry.get("cleanup")
         if not path or grade not in GRADES:
             raise SystemExit(f"invalid registry entry grade: {entry}")
+        _validate_policy_path(path)
         if cleanup not in ACTIONS:
             raise SystemExit(f"invalid registry entry cleanup: {entry}")
         if cleanup != "never" and not entry.get("retention_days"):
@@ -203,6 +208,62 @@ def init_policy(root: Path, path: Path, force: bool = False) -> Path:
     }
     path.write_text(json.dumps(policy, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def _validate_policy_path(path: str) -> None:
+    """Reject policy paths that can escape the workspace or refer to the root."""
+    raw = str(path).replace("\\", "/").strip()
+    if not raw or raw == ".":
+        raise SystemExit(f"invalid registry entry path: {path!r}")
+    if PurePosixPath(raw).is_absolute() or PureWindowsPath(raw).is_absolute() or PureWindowsPath(raw).drive:
+        raise SystemExit(f"invalid registry entry path must be relative: {path!r}")
+    if any(part == ".." for part in PurePosixPath(raw).parts):
+        raise SystemExit(f"invalid registry entry path must not contain '..': {path!r}")
+
+
+def ensure_within_root(root: Path, target: Path, label: str = "path") -> Path:
+    """Resolve a target and refuse it if it escapes the given root."""
+    root_resolved = root.resolve()
+    target_resolved = target.resolve()
+    try:
+        target_resolved.relative_to(root_resolved)
+    except ValueError as exc:
+        raise SystemExit(f"refusing {label} outside workspace: {target}") from exc
+    return target_resolved
+
+
+@contextlib.contextmanager
+def state_operation_lock(state_dir: Path, operation: str):
+    """Best-effort exclusive lock for state-changing operations."""
+    state_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = state_dir / ".wm.lock"
+    payload = {
+        "operation": operation,
+        "pid": os.getpid(),
+        "ts": utc_now_iso(),
+    }
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError as exc:
+        details = ""
+        try:
+            details = lock_path.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            pass
+        msg = f"state directory is busy: {lock_path} already exists"
+        if details:
+            msg += f" ({details})"
+        raise SystemExit(msg) from exc
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+            fh.write("\n")
+        yield lock_path
+    finally:
+        try:
+            lock_path.unlink()
+        except OSError:
+            pass
 
 
 def entry_covers(entry: dict, rel: Path) -> bool:
@@ -723,7 +784,7 @@ def health_score(report: dict) -> dict:
     }
 
 
-def audit(
+def _audit_unlocked(
     root: Path,
     registry_path: Path,
     state_dir: Path,
@@ -732,6 +793,9 @@ def audit(
 ) -> tuple[dict, Path]:
     registry = load_registry(registry_path)
     state_dir.mkdir(parents=True, exist_ok=True)
+    root = root.resolve()
+    state_dir = state_dir.resolve()
+    registry_path = registry_path.resolve()
     candidates = collect_candidates(root, registry)
     skip = (state_dir,) if state_dir.is_relative_to(root) else ()
     total_files, total_size = workspace_stats(root, skip_dirs=skip)
@@ -889,6 +953,18 @@ def audit(
     return report, report_path
 
 
+def audit(
+    root: Path,
+    registry_path: Path,
+    state_dir: Path,
+    dupes: bool = False,
+    operator: str = "manual",
+) -> tuple[dict, Path]:
+    """Run an audit while serializing journal/report writes."""
+    with state_operation_lock(state_dir, "audit"):
+        return _audit_unlocked(root, registry_path, state_dir, dupes=dupes, operator=operator)
+
+
 def render_report(report: dict, root: Path) -> str:
     disk = report.get("disk", {})
     growth = report.get("growth_mb_since_last_audit")
@@ -987,6 +1063,8 @@ def plan_items(
     now: datetime | None = None,
     window: tuple[int, int] | None = None,
 ) -> list[dict]:
+    root = root.resolve()
+    state_dir = state_dir.resolve()
     now = now or datetime.now()
     max_mb = registry.get("defaults", {}).get("max_item_mb", 2560)
     window_active = in_protected_window(now, window)
@@ -1030,82 +1108,89 @@ def clean(
     operator: str = "manual",
     window: tuple[int, int] | None = None,
 ) -> None:
+    root = root.resolve()
+    state_dir = state_dir.resolve()
+    registry_path = registry_path.resolve()
     registry = load_registry(registry_path)
     if "G3" in grades and not approve:
         raise SystemExit("G3 cleanup requires approval (--approve)")
-    items = plan_items(root, registry, grades, state_dir, window=window)
-    allowed_cleanup = set()
-    if "G4" in grades:
-        allowed_cleanup.add("auto")
-    if "G3" in grades and approve:
-        allowed_cleanup.add("approve")
-    todo = [it for it in items if it["cleanup"] in allowed_cleanup and not it["reason"]]
-    blocked = [it for it in items if it["reason"]]
-    if any(it["grade"] == "G3" for it in todo) and not approver:
-        raise SystemExit("G3 cleanup requires --approver (audit trail)")
-    size_todo = sum(it["size"] for it in todo)
-    print(
-        f"clean plan ({'dry-run' if not yes else 'executing'}): {len(todo)} item(s), "
-        f"{size_todo/1024/1024:.1f} MB; blocked {len(blocked)}"
-    )
-    for it in todo:
-        print(f"  [{it['grade']}] {it['path']} ({it['files']} files, {it['size']/1024/1024:.1f} MB)")
-    for it in blocked:
-        print(f"  [blocked] {it['path']} -> {it['reason']}")
-    if not yes:
-        print("--yes not given; dry-run only, nothing was moved.")
-        return
-    if not todo:
-        print("nothing to do.")
-        return
+    with state_operation_lock(state_dir, "clean"):
+        items = plan_items(root, registry, grades, state_dir, window=window)
+        allowed_cleanup = set()
+        if "G4" in grades:
+            allowed_cleanup.add("auto")
+        if "G3" in grades and approve:
+            allowed_cleanup.add("approve")
+        todo = [it for it in items if it["cleanup"] in allowed_cleanup and not it["reason"]]
+        blocked = [it for it in items if it["reason"]]
+        if any(it["grade"] == "G3" for it in todo) and not approver:
+            raise SystemExit("G3 cleanup requires --approver (audit trail)")
+        size_todo = sum(it["size"] for it in todo)
+        print(
+            f"clean plan ({'dry-run' if not yes else 'executing'}): {len(todo)} item(s), "
+            f"{size_todo/1024/1024:.1f} MB; blocked {len(blocked)}"
+        )
+        for it in todo:
+            print(f"  [{it['grade']}] {it['path']} ({it['files']} files, {it['size']/1024/1024:.1f} MB)")
+        for it in blocked:
+            print(f"  [blocked] {it['path']} -> {it['reason']}")
+        if not yes:
+            print("--yes not given; dry-run only, nothing was moved.")
+            return
+        if not todo:
+            print("nothing to do.")
+            return
 
-    run_id = f"clean-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
-    recycle = state_dir / "recycle" / run_id
-    runs_dir = state_dir / "runs"
-    manifest = {"run_id": run_id, "ts": now_str(), "items": []}
-    moved_ok = 0
-    for it in todo:
-        src = root / it["path"]
-        dst = recycle / it["path"]
-        try:
-            if dst.exists():
-                print(f"  [skip] {it['path']}: target already exists in recycle")
-                continue
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            hashes, integrity = item_hashes(src, it["size"], it["files"])
-            shutil.move(str(src), str(dst))
-            files, size, _ = dir_stats(dst)
-            manifest["items"].append(
-                {
-                    "path": it["path"],
-                    "is_dir": it["is_dir"],
-                    "grade": it["grade"],
-                    "cleanup": it["cleanup"],
-                    "size": size,
-                    "files": files,
-                    "hashes": hashes,
-                    "integrity": integrity,
-                    "moved_at": now_str(),
-                }
-            )
-            moved_ok += 1
-            print(f"  [recycled] {it['path']} -> {dst}")
-        except Exception as exc:  # noqa: BLE001
-            print(f"  [error] {it['path']}: {exc}")
-    runs_dir.mkdir(parents=True, exist_ok=True)
-    (runs_dir / f"{run_id}.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    journal_append(
-        state_dir,
-        "clean",
-        operator,
-        registry_sha256=sha256_file(registry_path),
-        run_id=run_id,
-        grades=sorted(grades),
-        items=moved_ok,
-        size=sum(it["size"] for it in todo),
-        approver=approver,
-    )
-    print(f"done: {moved_ok}/{len(todo)} item(s) moved to recycle. rollback: wm rollback {run_id}")
+        run_id = f"clean-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
+        recycle = state_dir / "recycle" / run_id
+        runs_dir = state_dir / "runs"
+        manifest = {"run_id": run_id, "ts": now_str(), "items": []}
+        moved_ok = 0
+        for it in todo:
+            src = ensure_within_root(root, root / it["path"], "clean source")
+            dst = ensure_within_root(recycle, recycle / it["path"], "recycle target")
+            try:
+                if dst.exists():
+                    print(f"  [skip] {it['path']}: target already exists in recycle")
+                    continue
+                if not src.exists():
+                    print(f"  [skip] {it['path']}: source missing before move")
+                    continue
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                hashes, integrity = item_hashes(src, it["size"], it["files"])
+                shutil.move(str(src), str(dst))
+                files, size, _ = dir_stats(dst)
+                manifest["items"].append(
+                    {
+                        "path": it["path"],
+                        "is_dir": it["is_dir"],
+                        "grade": it["grade"],
+                        "cleanup": it["cleanup"],
+                        "size": size,
+                        "files": files,
+                        "hashes": hashes,
+                        "integrity": integrity,
+                        "moved_at": now_str(),
+                    }
+                )
+                moved_ok += 1
+                print(f"  [recycled] {it['path']} -> {dst}")
+            except Exception as exc:  # noqa: BLE001
+                print(f"  [error] {it['path']}: {exc}")
+        runs_dir.mkdir(parents=True, exist_ok=True)
+        (runs_dir / f"{run_id}.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        journal_append(
+            state_dir,
+            "clean",
+            operator,
+            registry_sha256=sha256_file(registry_path),
+            run_id=run_id,
+            grades=sorted(grades),
+            items=moved_ok,
+            size=sum(it["size"] for it in todo),
+            approver=approver,
+        )
+        print(f"done: {moved_ok}/{len(todo)} item(s) moved to recycle. rollback: wm rollback {run_id}")
 
 
 def explain(root: Path, registry_path: Path, state_dir: Path, rel_path: str) -> dict:
@@ -1158,80 +1243,153 @@ def explain(root: Path, registry_path: Path, state_dir: Path, rel_path: str) -> 
 
 
 def rollback(root: Path, state_dir: Path, run_id: str, dry: bool = False, operator: str = "manual") -> None:
-    manifest_path = state_dir / "runs" / f"{run_id}.json"
-    if not manifest_path.exists():
-        raise SystemExit(f"run manifest not found: {manifest_path}")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    recycle = state_dir / "recycle" / run_id
-    ok = 0
-    for it in reversed(manifest["items"]):
-        src = recycle / it["path"]
-        dst = root / it["path"]
-        if not src.exists():
-            print(f"  [missing] {it['path']} not in recycle")
-            continue
-        verified, msg = verify_hashes(src, it.get("hashes"), it.get("integrity", "size_only"))
-        if not verified:
-            print(f"  [refused] {it['path']} integrity check failed ({msg}); skipped")
-            continue
-        if dst.exists():
-            print(f"  [refused] {it['path']} already exists at original location; skipped")
-            continue
-        if dry:
-            print(f"  [dry-run] restore {it['path']}")
+    root = root.resolve()
+    state_dir = state_dir.resolve()
+    with state_operation_lock(state_dir, "rollback"):
+        manifest_path = state_dir / "runs" / f"{run_id}.json"
+        if not manifest_path.exists():
+            raise SystemExit(f"run manifest not found: {manifest_path}")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        recycle = state_dir / "recycle" / run_id
+        ok = 0
+        for it in reversed(manifest["items"]):
+            src = ensure_within_root(recycle, recycle / it["path"], "recycle source")
+            dst = ensure_within_root(root, root / it["path"], "restore target")
+            if not src.exists():
+                print(f"  [missing] {it['path']} not in recycle")
+                continue
+            verified, msg = verify_hashes(src, it.get("hashes"), it.get("integrity", "size_only"))
+            if not verified:
+                print(f"  [refused] {it['path']} integrity check failed ({msg}); skipped")
+                continue
+            if dst.exists():
+                print(f"  [refused] {it['path']} already exists at original location; skipped")
+                continue
+            if dry:
+                print(f"  [dry-run] restore {it['path']}")
+                ok += 1
+                continue
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src), str(dst))
             ok += 1
-            continue
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(src), str(dst))
-        ok += 1
-        print(f"  [restored] {it['path']}")
-    if not dry:
-        journal_append(state_dir, "rollback", operator, run_id=run_id, restored=ok)
-    print(f"rollback {'dry-run' if dry else 'completed'}: {ok}/{len(manifest['items'])}")
+            print(f"  [restored] {it['path']}")
+        if not dry:
+            journal_append(state_dir, "rollback", operator, run_id=run_id, restored=ok)
+        print(f"rollback {'dry-run' if dry else 'completed'}: {ok}/{len(manifest['items'])}")
 
 
 def purge(state_dir: Path, older_than_days: int = 30, yes: bool = False, operator: str = "manual") -> None:
-    recycle = state_dir / "recycle"
-    if not recycle.exists():
-        print("recycle area is empty.")
-        return
-    cutoff = datetime.now().timestamp() - older_than_days * 86400
-    candidates: list[tuple[Path, float]] = []
-    for run_dir in sorted(recycle.iterdir()):
-        if not run_dir.is_dir():
-            continue
+    state_dir = state_dir.resolve()
+    with state_operation_lock(state_dir, "purge"):
+        recycle = state_dir / "recycle"
+        if not recycle.exists():
+            print("recycle area is empty.")
+            return
+        cutoff = datetime.now().timestamp() - older_than_days * 86400
+        candidates: list[tuple[Path, float]] = []
+        for run_dir in sorted(recycle.iterdir()):
+            if not run_dir.is_dir():
+                continue
+            try:
+                mtime = run_dir.stat().st_mtime
+            except OSError:
+                continue
+            if mtime < cutoff:
+                candidates.append((run_dir, mtime))
+        if not candidates:
+            print(f"no recycle batches older than {older_than_days} days.")
+            return
+        total = 0
+        for run_dir, _ in candidates:
+            files, size, _ = dir_stats(run_dir)
+            total += size
+            print(f"  {run_dir.name}: {files} files, {size/1024/1024:.1f} MB")
+        if not yes:
+            print("--yes not given; preview only.")
+            return
+        for run_dir, _ in candidates:
+            resolved = ensure_within_root(recycle, run_dir, "recycle batch")
+            shutil.rmtree(resolved)
+            print(f"  [deleted] {run_dir.name}")
+        journal_append(
+            state_dir,
+            "purge",
+            operator,
+            batches=[r.name for r, _ in candidates],
+            size=total,
+        )
+        print(f"purge done; freed {total/1024/1024:.1f} MB")
+
+
+def doctor(root: Path, registry_path: Path | None, state_dir: Path) -> dict:
+    """Run a read-only readiness check for the workspace."""
+    root = root.resolve()
+    state_dir = state_dir.resolve()
+    registry = None
+    registry_error = None
+    if registry_path is not None:
+        registry_path = registry_path.resolve()
         try:
-            mtime = run_dir.stat().st_mtime
-        except OSError:
-            continue
-        if mtime < cutoff:
-            candidates.append((run_dir, mtime))
-    if not candidates:
-        print(f"no recycle batches older than {older_than_days} days.")
-        return
-    total = 0
-    for run_dir, _ in candidates:
-        files, size, _ = dir_stats(run_dir)
-        total += size
-        print(f"  {run_dir.name}: {files} files, {size/1024/1024:.1f} MB")
-    if not yes:
-        print("--yes not given; preview only.")
-        return
-    for run_dir, _ in candidates:
-        resolved = run_dir.resolve()
-        if not str(resolved).startswith(str(recycle.resolve())):
-            print(f"  [refused] {run_dir} outside recycle area")
-            continue
-        shutil.rmtree(resolved)
-        print(f"  [deleted] {run_dir.name}")
-    journal_append(
-        state_dir,
-        "purge",
-        operator,
-        batches=[r.name for r, _ in candidates],
-        size=total,
-    )
-    print(f"purge done; freed {total/1024/1024:.1f} MB")
+            registry = load_registry(registry_path)
+        except SystemExit as exc:
+            registry_error = str(exc)
+    has_git = (root / ".git").exists()
+    tracked = git_tracked_files(root) if has_git else None
+    writable = os.access(root, os.W_OK)
+    state_writable = os.access(state_dir.parent if state_dir.exists() else state_dir.parent, os.W_OK)
+    lock_path = state_dir / ".wm.lock"
+    lock_busy = lock_path.exists()
+    missing_registry = registry_path is None
+    unregistered = None
+    sensitive = None
+    candidates = None
+    if registry is not None:
+        candidates = len(collect_candidates(root, registry))
+        sensitive = len(scan_sensitive_files(root, state_dir))
+        unregistered = 0
+        for child in sorted(root.iterdir()):
+            rel = child.relative_to(root)
+            name = rel.as_posix()
+            if name in registry.get("never_clean", []) or name == ".git":
+                continue
+            if state_dir.is_relative_to(root) and rel == state_dir.relative_to(root):
+                continue
+            if not covered_by_any(registry, rel):
+                unregistered += 1
+        tracked_for_audit = git_tracked_files(root)
+        if tracked_for_audit is not None:
+            unregistered = max(
+                0,
+                unregistered - sum(
+                    1
+                    for child in root.iterdir()
+                    if any(
+                        p == child.name or p.startswith(child.name + "/")
+                        for p in tracked_for_audit
+                    )
+                ),
+            )
+    result = {
+        "root": str(root),
+        "state_dir": str(state_dir),
+        "root_writable": writable,
+        "state_dir_writable": state_writable,
+        "lock_path": str(lock_path),
+        "lock_busy": lock_busy,
+        "git_repo": has_git,
+        "git_tracked_files": len(tracked) if tracked else 0,
+        "registry_path": str(registry_path) if registry_path else None,
+        "registry_present": registry_path is not None,
+        "registry_valid": registry is not None if registry_path is not None else False,
+        "registry_error": registry_error,
+        "missing_registry": missing_registry,
+        "workspace_on_memory": bool(memory_backed_info(root)),
+        "state_on_memory": bool(memory_backed_info(state_dir)),
+        "unregistered": unregistered,
+        "sensitive": sensitive,
+        "candidates": candidates,
+    }
+    return result
 
 
 def status(root: Path, registry_path: Path, state_dir: Path) -> None:
