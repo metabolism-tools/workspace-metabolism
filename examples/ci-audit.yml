@@ -1,0 +1,45 @@
+# Workspace metabolism audit in CI (template).
+#
+# Copy this file into your repo as .github/workflows/metabolism.yml and set
+# MIN_SCORE to your team's threshold. The job fails when the workspace health
+# score drops below it or the journal hash chain is broken.
+#
+# Note: the default state directory lives in the runner's cache, so the
+# journal (and the growth baseline) resets on a cold cache. That is fine for a
+# health gate; for durable audit history, uncomment the actions/cache step.
+
+name: workspace metabolism
+
+on:
+  schedule:
+    - cron: "0 2 * * 1" # every Monday 02:00 UTC
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install workspace-metabolism
+      # - name: Cache state (durable journal)
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: .wm-state
+      #     key: wm-state-${{ runner.os }}-${{ github.sha }}
+      #     restore-keys: wm-state-${{ runner.os }}-
+      - name: Audit
+        run: wm audit --json
+      - name: Health gate
+        env:
+          MIN_SCORE: "75"
+        run: |
+          SCORE=$(wm health --json | python -c "import json,sys; print(json.load(sys.stdin)['score'])")
+          echo "workspace health: $SCORE/100"
+          if [ "$SCORE" -lt "$MIN_SCORE" ]; then
+            echo "health below threshold ($MIN_SCORE); run wm audit and wm clean --grades G4"
+            exit 1
+          fi

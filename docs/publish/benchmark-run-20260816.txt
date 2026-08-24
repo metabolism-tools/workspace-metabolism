@@ -1,0 +1,31 @@
+﻿{
+  "loops": 30,
+  "files_per_loop": 8,
+  "retention_days": 7,
+  "governed": {
+    "workspace_files": 2,
+    "workspace_size_mb": 0.0,
+    "candidates": 0,
+    "recycle_files": 240,
+    "recycle_mb": 0.4,
+    "journal_entries": 33,
+    "journal_chain_ok": true,
+    "audit_ms": 94.3
+  },
+  "ungoverned": {
+    "workspace_files": 242,
+    "workspace_size_mb": 0.4,
+    "candidates": 240,
+    "audit_ms": 105.3
+  },
+  "rollback": {
+    "run_id": "clean-20260816-160735-811521",
+    "restored_file": "run00_draft.py",
+    "hash_ok": true,
+    "ms": 82.1
+  },
+  "tmp_dir": "C:\\Users\\ͮͮ\\AppData\\Local\\Temp\\wm-bench-2aaqkn2x"
+}
+
+governed  : clean each loop; recycle holds 240 files; verify: chain OK | rollback hash_ok = True
+ungoverned: 242 files, 0.4 MB, 240 expired candidates

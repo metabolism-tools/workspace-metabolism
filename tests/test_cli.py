@@ -1,0 +1,208 @@
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+
+from workspace_metabolism.cli import main
+
+
+def _make_workspace(root: Path) -> None:
+    (root / "src").mkdir(parents=True)
+    (root / "src" / "main.py").write_text("print('hi')\n", encoding="utf-8")
+    (root / "logs").mkdir()
+    for i in range(2):
+        p = root / "logs" / f"app{i}.log"
+        p.write_text("x" * 200, encoding="utf-8")
+        old = datetime.now().timestamp() - 40 * 86400
+        os.utime(p, (old, old))
+    os.utime(root / "logs", (old, old))
+
+
+def _registry(path: Path) -> Path:
+    data = {
+        "version": 1,
+        "description": "test",
+        "defaults": {"recycle_retention_days": 30, "max_item_mb": 2560},
+        "never_clean": ["src", "docs"],
+        "entries": [
+            {"path": "src", "grade": "G2", "cleanup": "never"},
+            {"path": "logs", "grade": "G4", "cleanup": "auto", "retention_days": 30},
+        ],
+    }
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+def test_cli_status_and_audit(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    _make_workspace(root)
+    reg = _registry(tmp_path / "registry.json")
+    state = tmp_path / "state"
+    assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "status"]) == 0
+    assert "workspace:" in capsys.readouterr().out
+    assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "audit"]) == 0
+    out = capsys.readouterr().out
+    assert "audit done" in out
+    assert (state / "journal.jsonl").exists()
+
+
+def test_cli_audit_json(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    _make_workspace(root)
+    reg = _registry(tmp_path / "registry.json")
+    state = tmp_path / "state"
+    assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "audit", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert "candidates" in data
+    assert data["workspace"]["files"] > 0
+    assert "summary" in data
+    assert data["summary"]["journal_entries"] >= 1
+    assert data["summary"]["journal_chain_ok"] is True
+
+
+def test_cli_init_and_autodiscovery(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "src").mkdir()
+    (root / "logs").mkdir()
+    state = tmp_path / "state"
+    assert main(["--root", str(root), "--state-dir", str(state), "init"]) == 0
+    assert (root / "metabolism.json").exists()
+    capsys.readouterr()  # discard init output
+    # no --registry: auto-discovery finds metabolism.json
+    assert main(["--root", str(root), "--state-dir", str(state), "audit", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert "health_score" in data["summary"]
+
+
+def test_cli_health_badge(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "src").mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    capsys.readouterr()  # discard init output
+    assert main(["--root", str(root), "--state-dir", str(state), "health", "--badge"]) == 0
+    badge = json.loads(capsys.readouterr().out)
+    assert badge["schemaVersion"] == 1
+    assert "message" in badge and "color" in badge
+
+
+def test_cli_explain(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "src").mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    assert main(["--root", str(root), "--state-dir", str(state), "explain", "src"]) == 0
+    out = capsys.readouterr().out
+    assert "policy entry" in out and "G2" in out
+
+
+def test_cli_mcp_initialize_and_health(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "src").mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    from workspace_metabolism.mcp_server import handle_message
+
+    ctx = {"root": root, "state_dir": state, "registry_path": root / "metabolism.json"}
+    resp = json.loads(handle_message('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}', ctx))
+    assert resp["result"]["protocolVersion"] == "2024-11-05"
+    resp = json.loads(
+        handle_message(
+            '{"jsonrpc":"2.0","id":2,"method":"tools/call",'
+            '"params":{"name":"wm_health","arguments":{}}}',
+            ctx,
+        )
+    )
+    assert '"score"' in resp["result"]["content"][0]["text"]
+
+
+def test_cli_clean_dry_run_and_verify(tmp_path: Path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    _make_workspace(root)
+    reg = _registry(tmp_path / "registry.json")
+    state = tmp_path / "state"
+    assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "audit"]) == 0
+    assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "clean", "--grades", "G4"]) == 0
+    assert (root / "logs").exists()  # dry-run: nothing moved
+    assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "verify"]) == 0
+
+
+def test_cli_clean_execute_and_rollback(tmp_path: Path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    _make_workspace(root)
+    reg = _registry(tmp_path / "registry.json")
+    state = tmp_path / "state"
+    assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "clean", "--grades", "G4", "--yes"]) == 0
+    assert not (root / "logs").exists()
+    runs = sorted((state / "runs").glob("clean-*.json"))
+    assert len(runs) == 1
+    run_id = runs[0].stem
+    assert main(["--root", str(root), "--state-dir", str(state), "rollback", run_id]) == 0
+    assert (root / "logs").exists()
+    assert (root / "logs" / "app0.log").exists()
+
+
+def test_cli_purge_end_to_end(tmp_path: Path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    _make_workspace(root)
+    reg = _registry(tmp_path / "registry.json")
+    state = tmp_path / "state"
+    assert main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "clean", "--grades", "G4", "--yes"]) == 0
+    old = datetime.now().timestamp() - 2 * 86400
+    for batch in (state / "recycle").iterdir():
+        os.utime(batch, (old, old))
+    assert main(["--root", str(root), "--state-dir", str(state), "purge", "--older-than", "0", "--yes"]) == 0
+    assert not any((state / "recycle").iterdir())
+
+
+def test_cli_protected_window_flag(tmp_path: Path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    _make_workspace(root)
+    reg = _registry(tmp_path / "registry.json")
+    state = tmp_path / "state"
+    # Invalid window spec must fail fast
+    with pytest.raises(SystemExit):
+        main(["--root", str(root), "--registry", str(reg), "--state-dir", str(state), "--protected-window", "bad", "status"])
+
+
+def test_cli_requires_registry(tmp_path: Path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    with pytest.raises(SystemExit):
+        main(["--root", str(root), "--state-dir", str(tmp_path / "state"), "status"])
+
+
+def test_cli_doctor_reports_ready_workspace(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    capsys.readouterr()
+    assert main(["--root", str(root), "--state-dir", str(state), "doctor"]) == 0
+    out = capsys.readouterr().out
+    assert "OK: workspace writable" in out
+    assert "OK: policy valid" in out
+
+
+def test_cli_doctor_json_does_not_write_audit_artifacts(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    capsys.readouterr()
+    assert main(["--root", str(root), "--state-dir", str(state), "doctor", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["registry_valid"] is True
+    assert not (state / "journal.jsonl").exists()

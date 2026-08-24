@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "$schema": "https://raw.githubusercontent.com/metabolism-tools/workspace-metabolism/main/schema/metabolism.schema.json",
+  "description": "workspace-metabolism policy for workspace-metabolism",
+  "defaults": {
+    "recycle_retention_days": 30,
+    "max_item_mb": 2560,
+    "disk_alert_free_gb": 20,
+    "disk_alert_free_pct": 15,
+    "dupe_scan_dirs": [
+      "tmp",
+      "cache"
+    ]
+  },
+  "never_clean": [
+    ".git",
+    "README.md",
+    "LICENSE",
+    "metabolism.json",
+    ".wm.json",
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "requirements.txt",
+    "package.json",
+    "Cargo.toml",
+    "go.mod",
+    "pom.xml",
+    "build.gradle",
+    "Makefile",
+    "MANIFEST.in",
+    ".gitignore",
+    "Dockerfile",
+    "docker-compose.yml",
+    "compose.yaml",
+    "justfile",
+    ".github",
+    ".venv",
+    "CONTRIBUTING.md",
+    "ROADMAP.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "AGENTS.md",
+    "NOTICE"
+  ],
+  "entries": [
+    {
+      "path": ".pytest_cache",
+      "grade": "G4",
+      "cleanup": "auto",
+      "retention_days": 30,
+      "intent": "high-churn byproduct"
+    },
+    {
+      "path": "dist",
+      "grade": "G4",
+      "cleanup": "auto",
+      "retention_days": 90,
+      "intent": "high-churn byproduct"
+    },
+    {
+      "path": "docs",
+      "grade": "G2",
+      "cleanup": "never",
+      "intent": "source or docs; always keep"
+    },
+    {
+      "path": "examples",
+      "grade": "G2",
+      "cleanup": "never",
+      "intent": "source or docs; always keep"
+    },
+    {
+      "path": "schema",
+      "grade": "G2",
+      "cleanup": "never",
+      "intent": "source or docs; always keep"
+    },
+    {
+      "path": "src",
+      "grade": "G2",
+      "cleanup": "never",
+      "intent": "source or docs; always keep"
+    },
+    {
+      "path": "tests",
+      "grade": "G2",
+      "cleanup": "never",
+      "intent": "source or docs; always keep"
+    },
+    {
+      "path": "**/__pycache__",
+      "grade": "G4",
+      "cleanup": "auto",
+      "retention_days": 30,
+      "intent": "python bytecode cache"
+    }
+  ]
+}
