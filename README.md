@@ -265,6 +265,21 @@ python -m pytest
 CI runs the full test suite on Ubuntu, Windows and macOS with Python 3.11 and
 3.12. Issues are handled on weekends; pull requests are welcome.
 
+## Project family
+
+Sister organization: [Foolproof Labs](https://github.com/foolproof-labs) — a
+toolchain against self-deception in quantitative research:
+
+- [`falsification-ledger`](https://github.com/foolproof-labs/falsification-ledger) — pre-registration and falsification ledger
+- [`factor-qc`](https://github.com/foolproof-labs/factor-qc) — fail-closed backtest quality gate
+- [`pit-adjuster`](https://github.com/foolproof-labs/pit-adjuster) — PIT back-adjustment with drift detection
+- [`lookahead-free`](https://github.com/foolproof-labs/lookahead-free) — verifiable look-ahead-freedom checks
+- [`ashare-data-immunity`](https://github.com/foolproof-labs/ashare-data-immunity) — data immunity for A-share daily bars
+- [`lesson-book`](https://github.com/foolproof-labs/lesson-book) — tuition memory for traders
+
+If `workspace-metabolism` keeps the *workspace* alive, Foolproof Labs keeps
+the *research* honest.
+
 ## License
 
 MIT
