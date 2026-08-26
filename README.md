@@ -15,6 +15,25 @@ verify — every step leaves a hash-chained audit trail. Python 3.11+,
 external users yet, and the policy schema may shift before v1.0. Early adopters
 are welcome to break it on weird directory structures.
 
+## 中文快速上手（30 秒）
+
+AI 编程（Claude Code / Codex / Aider 等）会在工作区留下大量草稿、缓存和
+废弃文件，越堆越多，下一轮 AI 还得在垃圾堆里干活。这个工具用一份策略文件
+管理文件的整个生命周期：**检查（只读）→ 回收（可回滚）→ 验证（防篡改记录）
+→ 清理**。
+
+```bash
+pip install workspace-metabolism        # 安装（零依赖）
+python examples/demo.py                 # 30 秒演示：盲删 vs 回收+回滚
+wm init                                 # 生成策略文件 metabolism.json
+wm audit                                # 只读体检，给文件贴营养标签
+wm clean --grades G4 --yes              # 回收过期项（默认 dry-run，确认后加 --yes）
+wm rollback <run_id>                    # 删错了？一键原样找回
+```
+
+默认只读、绝不直接删文件；每步操作都有防篡改记录；Windows / Mac / Linux 通用。
+项目处于早期（v0.2），策略格式在 v1.0 前可能调整。完整英文文档见下文。
+
 ## Why this exists
 
 Most disk tools either show you space (`ncdu`, `duf`) or delete things
