@@ -120,3 +120,15 @@ v0.2.1 发布后给 @alexanderadam 发了收尾回复
 
 - 回复出现时：一对一跟进，给临时目录试用指引（demo 已覆盖），不转向推销。
 - 若 7 天无回复：不催促；记录后转入次级候选评估或停止该线索。
+
+## 追加：分发轮（2026-08-26）
+
+诊断：产品改进 ≠ 关注；0 star / 0 反馈，HN 上 0 条记录（Show HN 从未发过）。已执行：
+
+- **仓库描述改尖锐**（GitHub 搜索/列表页首印象）：改为 "Govern what Claude Code, Codex, Aider and OpenClaw leave in your workspace: one JSON policy file, audit, recyclable clean, rollback, hash-chained audit trail."
+- **awesome-mcp-servers PR**：[punkpeye/awesome-mcp-servers#12939](https://github.com/punkpeye/awesome-mcp-servers/pull/12939)（Developer Tools 分类，`wm mcp` 条目，含 glama badge；待维护者合入/回复）
+- **发布文案终稿**：docs/publish/launch-bundle-v0.2.1.md（Show HN 标题 A/B + 正文、r/Python、X 线程 3 条、发布检查清单；痛点先行，30 秒 demo 锚点）
+- **demo 反馈 CTA**：examples/demo.py 结尾新增 "issues & stars welcome" 指向；80 passed
+- **工作区恢复**：本地工作区被清空（仅剩 docs 两份草稿），已从 origin 克隆恢复至 5d79c33，未丢失任何远端内容
+
+待用户操作：按 launch-bundle 在美东周二至周四上午发 Show HN / r/Python / X；PyPI 0.2.1 上传（本机无凭据）。

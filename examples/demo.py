@@ -138,6 +138,9 @@ def main() -> int:
     rc |= run(base + ["verify"], env)
     print()
     print(f"demo workspace: {demo}\nstate directory: {state}")
+    print()
+    print("Like the idea? Break it on a weird directory structure and tell us:")
+    print("  https://github.com/metabolism-tools/workspace-metabolism  (issues & stars welcome)")
     return rc
 
 
