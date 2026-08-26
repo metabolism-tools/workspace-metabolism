@@ -8,3 +8,13 @@ build/
 *.log
 .env
 .local-state/
+
+# local test / review artifacts (never commit)
+/wm-check-*/
+/workspace-metabolism/
+/workspace-metabolism-extract2/
+/workspace-metabolism-review/
+
+# secrets — never commit
+pypi-token.txt
+/Agentic Metabolic Engineering/
