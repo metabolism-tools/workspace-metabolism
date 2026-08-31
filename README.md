@@ -260,6 +260,30 @@ still decides everything. The end-of-loop ritual is automated in
 [examples/micro_metabolism.py](examples/micro_metabolism.py) — wire it into a
 session-end hook so every loop ends with a checkup.
 
+### DeepSeek Harness (DSH)
+
+DSH is an agent harness where *everything is a plugin* (Cordis). Its official
+third-party tool channel is MCP, and `wm mcp` already speaks it — one
+`cordis.yml` row exposes all seven wm tools to the DSH agent:
+
+```yaml
+- insert:
+    - id: workspace-metabolism
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: wm
+        transport: stdio
+        command: wm
+        args: [mcp]
+        cwd: !!js process.cwd()
+```
+
+Full walkthrough (project `cordis.yml` vs `--patch` overlay, pinned
+`--root`/`--state-dir`, safety notes):
+[docs/dsh-integration.md](docs/dsh-integration.md). A policy tuned for
+DSH-style workspaces (`.agents/notes`, scratch plugins, generated artifacts):
+[examples/registry.dsh.example.json](examples/registry.dsh.example.json).
+
 ## Safety model
 
 - `clean` is dry-run unless `--yes` is given.

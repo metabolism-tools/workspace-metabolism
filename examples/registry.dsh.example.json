@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "description": "Example policy for a DeepSeek Harness (DSH) style workspace: governs the byproducts of a self-evolving agent (decision notes, local plugin experiments, generated artifacts) with the same G1-G4 vocabulary as any agent workspace. Copy to your workspace as metabolism.json and adjust.",
+  "defaults": {
+    "recycle_retention_days": 30,
+    "max_item_mb": 2560,
+    "disk_alert_free_gb": 20,
+    "disk_alert_free_pct": 15,
+    "dupe_scan_dirs": ["tmp", "cache"]
+  },
+  "never_clean": [".git", "README.md", "LICENSE", "docs", "src", "packages", "apps", "cordis.yml"],
+  "entries": [
+    {"path": ".agents", "category": "C4", "grade": "G2", "cleanup": "never", "note": "agent working area; subdirectories set their own lifecycle", "owner": "agent", "intent": "cover the parent so the audit does not flag the agent area as unregistered"},
+    {"path": ".agents/notes", "category": "C4", "grade": "G2", "cleanup": "never", "note": "agent decision notes are the durable memory of the project", "owner": "agent", "intent": "notes are knowledge, not residue"},
+    {"path": ".agents/notes/archived", "category": "C8", "grade": "G4", "cleanup": "auto", "retention_days": 90, "note": "archived agent notes; keep one quarter, then recycle", "owner": "agent", "intent": "the archive process already curated these; a quarter of grace is enough"},
+    {"path": "scratch-plugin", "category": "C3", "grade": "G3", "cleanup": "approve", "retention_days": 30, "note": "local plugin experiments; promote to a real plugin or let go", "owner": "agent", "review_after": "2027-01-01"},
+    {"path": "dist", "category": "C7", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "build output, rebuildable"},
+    {"path": "**/lib", "category": "C7", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "compiled TypeScript output, rebuildable"},
+    {"path": "**/__pycache__", "category": "C7", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "python bytecode cache"},
+    {"path": ".pytest_cache", "category": "C7", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "pytest cache"},
+    {"path": ".turbo", "category": "C7", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "turborepo task cache, rebuildable"},
+    {"path": "node_modules", "category": "C7", "grade": "G3", "cleanup": "approve", "retention_days": 90, "note": "rebuildable but costly; needs approval", "owner": "sre", "intent": "npm install is slow enough that wiping this deserves a human yes"},
+    {"path": "logs", "category": "C8", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "runtime logs, rebuildable"},
+    {"path": "tmp", "category": "C8", "grade": "G4", "cleanup": "auto", "retention_days": 30, "scope": "files_only", "note": "one-off files at the top level"},
+    {"path": "cache", "category": "C7", "grade": "G4", "cleanup": "auto", "retention_days": 30, "note": "download cache, rebuildable"},
+    {"path": "archive", "category": "C8", "grade": "G3", "cleanup": "approve", "retention_days": 60, "note": "old backups; requires approval and a reference check", "owner": "data", "review_after": "2027-01-01"}
+  ]
+}
