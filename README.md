@@ -10,6 +10,7 @@ verify — every step leaves a hash-chained audit trail. Python 3.11+,
 [![CI](https://img.shields.io/github/actions/workflow/status/metabolism-tools/workspace-metabolism/ci.yml)](https://github.com/metabolism-tools/workspace-metabolism/actions)
 [![License: MIT](https://img.shields.io/github/license/metabolism-tools/workspace-metabolism)](LICENSE)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](pyproject.toml)
+[![Glama score](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism/badges/score.svg)](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism)
 
 ![Terminal demo](docs/demo-terminal.gif)
 
