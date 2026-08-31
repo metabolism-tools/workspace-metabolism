@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from . import __version__
-from .core import audit, clean, explain, health_score, verify
+from .core import POLICY_FILENAMES, audit, clean, explain, health_score, init_policy, rollback, verify
 
 PROTOCOL_VERSION = "2024-11-05"
 
@@ -115,6 +115,53 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "wm_init",
+        "description": (
+            "Scaffold the metabolism.json policy file for this workspace (like git init): scans the "
+            "workspace and generates a policy that grades every directory G1-G4 with safe defaults — "
+            "source, docs, tests, secrets, dotfiles and version control are never auto-cleaned. Use this "
+            "once, when no policy file exists, before the first audit or clean; after it succeeds, "
+            "wm_audit and wm_clean can operate. Fails without writing anything if a policy already "
+            "exists and force is not set."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "force": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Overwrite an existing policy file instead of failing. Only set this when you explicitly want to regenerate the whole policy from scratch — a hand-tuned policy with custom entries will be replaced.",
+                }
+            },
+        },
+    },
+    {
+        "name": "wm_rollback",
+        "description": (
+            "Restore the items of a previous wm_clean run from the recycle area back to their original "
+            "locations. Every item is verified against its recorded SHA-256 hashes first; items that fail "
+            "the integrity check, are missing, or would overwrite an existing file are skipped with a "
+            "reason. Use this to undo a cleanup you just executed, passing the run id printed by "
+            "wm_clean. Dry-run by default; set execute=true to actually restore. Fails with a clear "
+            "message if the run id is unknown."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "The cleanup run id to restore, as printed by wm_clean, e.g. 'clean-20260831-153000-123456'.",
+                },
+                "execute": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "When false (default) this is a dry-run preview and nothing changes; set true to actually restore the files.",
+                },
+            },
+            "required": ["run_id"],
+        },
+    },
 ]
 
 
@@ -130,6 +177,32 @@ def _call_tool(name: str, params: dict, ctx: dict) -> dict:
     root: Path = ctx["root"]
     state_dir: Path = ctx["state_dir"]
     registry_path: Optional[Path] = ctx.get("registry_path")
+    if name == "wm_init":
+        force = bool(params.get("force", False))
+        try:
+            created = init_policy(root, root / POLICY_FILENAMES[0], force=force)
+        except SystemExit as exc:
+            return _error(str(exc))
+        return _text_result(f"created policy file: {created}")
+    if name == "wm_rollback":
+        run_id = str(params.get("run_id", "")).strip()
+        if not run_id:
+            return _error("run_id is required")
+        execute = bool(params.get("execute", False))
+        buffer = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buffer):
+                rollback(root, state_dir, run_id, dry=not execute, operator="agent")
+        except SystemExit as exc:
+            return _error(str(exc))
+        return _text_result(buffer.getvalue())
+    if registry_path is None and root is not None:
+        # Auto-discover the policy if it appeared after the server started (e.g. via wm_init).
+        for policy_name in POLICY_FILENAMES:
+            candidate = root / policy_name
+            if candidate.exists():
+                registry_path = candidate
+                break
     if registry_path is None:
         return _error("no policy file found; run `wm init` first")
     if name == "wm_audit":
