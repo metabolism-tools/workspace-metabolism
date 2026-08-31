@@ -94,6 +94,31 @@ def test_registry_requires_retention_for_cleanable(tmp_path: Path):
         m.load_registry(reg)
 
 
+@pytest.mark.parametrize("bad_path", ["../outside", "..\\outside", "/tmp/outside", "C:\\outside"])
+def test_registry_rejects_paths_outside_workspace(tmp_path: Path, bad_path: str):
+    reg = tmp_path / "r.json"
+    write_registry(reg, [{"path": bad_path, "grade": "G4", "cleanup": "auto", "retention_days": 1}])
+    with pytest.raises(SystemExit, match="relative|contain"):
+        m.load_registry(reg)
+
+
+def test_state_operation_lock_rejects_concurrent_operation(tmp_path: Path):
+    state = tmp_path / "state"
+    state.mkdir()
+    lock = state / ".wm.lock"
+    lock.write_text('{"operation":"clean","pid":123}\n', encoding="utf-8")
+    with pytest.raises(SystemExit, match="state directory is busy"):
+        with m.state_operation_lock(state, "rollback"):
+            pass
+
+
+def test_state_operation_lock_releases_after_operation(tmp_path: Path):
+    state = tmp_path / "state"
+    with m.state_operation_lock(state, "clean"):
+        assert (state / ".wm.lock").exists()
+    assert not (state / ".wm.lock").exists()
+
+
 def test_audit_finds_expired_candidates_and_unregistered(env, tmp_path: Path):
     root, state = env
     make_old_dir(root, "cache_g4")
