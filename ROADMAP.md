@@ -30,7 +30,15 @@ this roadmap tracks both.
 ## Next
 
 - **Agent framework integrations**: ready-made session-end hooks for Claude
-  Code and Codex; an MCP client guide.
+  Code and Codex; an MCP client guide; DeepSeek Harness via
+  `@deepseek-ai/dsh-mcp-client` ([docs/dsh-integration.md](docs/dsh-integration.md)).
+- **Self-evolution accountability (v0.3 direction)**: the hash-chained journal
+  and `rollback` are designed as the verifiable audit layer for agents that
+  modify their own runtime (`cordis_define`-style self-evolution). Proposed
+  steps: automatic `turn/end` auditing (native DSH plugin), workspace health
+  score as a cross-session fitness signal, and journal-backed attribution of
+  model-made changes. Not yet wired into any loop — see the DSH discussion
+  thread for the open design question.
 - **Benchmark v2**: multi-profile workspaces (agent-heavy repo, data-science
   workspace, web project), 100-loop runs, audit-time and context-size curves.
 - **Health badge hosting**: a hosted endpoint so the badge updates
