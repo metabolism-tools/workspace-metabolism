@@ -23,44 +23,95 @@ PROTOCOL_VERSION = "2024-11-05"
 TOOLS = [
     {
         "name": "wm_audit",
-        "description": "Read-only workspace checkup; returns the full audit report.",
+        "description": (
+            "Run a read-only workspace audit and return the complete report as JSON: every path the policy "
+            "covers, its grade (G1-G4), its cleanup state, and any anomalies. Use this at the start of a "
+            "session to see what the metabolism policy says about the workspace, or before planning any "
+            "cleanup. Never moves or modifies any files; if no policy file exists it reports that instead of "
+            "failing."
+        ),
         "inputSchema": {
             "type": "object",
-            "properties": {"dupes": {"type": "boolean", "description": "scan for possible duplicates"}},
+            "properties": {
+                "dupes": {
+                    "type": "boolean",
+                    "description": "When true, additionally scan for possible duplicate files (slower).",
+                }
+            },
         },
     },
     {
         "name": "wm_health",
-        "description": "Workspace health score (0-100) with component breakdown.",
+        "description": (
+            "Compute the workspace health score (0-100) and return it with the per-component breakdown "
+            "(coverage, compliance, cleanliness) as JSON. Use this to quantify in one number how well the "
+            "workspace follows its policy, e.g. for CI gates or session-end reporting. Read-only; requires a "
+            "policy file — if none exists it returns an error telling you to run 'wm init'."
+        ),
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "wm_explain",
-        "description": "Explain what the policy says about a path (the nutrition label).",
+        "description": (
+            "Return the 'nutrition label' for one path: the grade the policy assigns (G1-G4), why it is "
+            "graded that way, and what cleanup would do to it. Use this when you or the user ask why a "
+            "specific file or directory is (or is not) cleanup-worthy. Read-only; fails with a clear message "
+            "if the path is outside the workspace or the policy is missing."
+        ),
         "inputSchema": {
             "type": "object",
-            "properties": {"path": {"type": "string", "description": "relative path inside the workspace"}},
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to explain, relative to the workspace root (e.g. 'logs' or 'src/util.py').",
+                }
+            },
             "required": ["path"],
         },
     },
     {
         "name": "wm_verify",
-        "description": "Verify the journal hash chain and run manifests.",
+        "description": (
+            "Verify the integrity of the audit trail: check that the hash-chained journal has not been "
+            "tampered with and that run manifests are consistent, returning pass/fail per check with details "
+            "as JSON. Use this before trusting any previous clean/rollback history, or after suspecting "
+            "manual edits to the journal. Read-only."
+        ),
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "wm_clean",
         "description": (
-            "Plan or execute a policy-driven cleanup. Dry-run by default; "
-            "set execute=true only when the caller is sure."
+            "Plan or execute a policy-driven cleanup. By default it is a dry-run: returns the exact plan "
+            "(what would be moved to the recycle area, with per-file SHA-256 hashes) and changes nothing. "
+            "Pass execute=true to apply the plan: items are moved to a recycle area, never deleted by "
+            "pattern, and every action lands in the hash-chained journal so rollback is possible. Use it "
+            "when the workspace has accumulated policy-expired byproducts. Do NOT set execute=true without "
+            "first running a dry-run and confirming the plan; G3 execution additionally requires approve=true "
+            "and an approver."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
-                "grades": {"type": "string", "default": "G4", "description": "comma-separated grades, e.g. G4 or G3,G4"},
-                "execute": {"type": "boolean", "default": False},
-                "approve": {"type": "boolean", "default": False},
-                "approver": {"type": "string", "description": "required for G3 execution"},
+                "grades": {
+                    "type": "string",
+                    "default": "G4",
+                    "description": "Comma-separated grades to clean, e.g. 'G4' or 'G3,G4'. Defaults to G4, the most aggressive auto-cleanable grade.",
+                },
+                "execute": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "When false (default) this is a dry-run and nothing changes; set true to actually move files to the recycle area.",
+                },
+                "approve": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Human approval gate; required together with 'approver' for G3-grade execution.",
+                },
+                "approver": {
+                    "type": "string",
+                    "description": "Name of the person or system approving G3 execution; required when grades include G3 and is recorded in the audit journal.",
+                },
             },
         },
     },
