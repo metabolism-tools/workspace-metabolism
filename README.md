@@ -5,6 +5,12 @@ classify, audit, clean into a recycle area (rollback anytime), purge, and
 verify — every step leaves a hash-chained audit trail. Python 3.11+,
 **zero dependencies**, Windows / Linux / macOS.
 
+[![PyPI version](https://img.shields.io/pypi/v/workspace-metabolism)](https://pypi.org/project/workspace-metabolism)
+[![Python](https://img.shields.io/pypi/pyversions/workspace-metabolism)](https://pypi.org/project/workspace-metabolism)
+[![CI](https://img.shields.io/github/actions/workflow/status/metabolism-tools/workspace-metabolism/ci.yml)](https://github.com/metabolism-tools/workspace-metabolism/actions)
+[![License: MIT](https://img.shields.io/github/license/metabolism-tools/workspace-metabolism)](LICENSE)
+[![Zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](pyproject.toml)
+
 ![Terminal demo](docs/demo-terminal.gif)
 
 ![workspace health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmetabolism-tools%2Fworkspace-metabolism%2Fmain%2Fdocs%2Fhealth.json)
