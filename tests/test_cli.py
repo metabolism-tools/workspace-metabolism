@@ -182,3 +182,27 @@ def test_cli_requires_registry(tmp_path: Path):
     root.mkdir()
     with pytest.raises(SystemExit):
         main(["--root", str(root), "--state-dir", str(tmp_path / "state"), "status"])
+
+
+def test_cli_doctor_reports_ready_workspace(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    capsys.readouterr()
+    assert main(["--root", str(root), "--state-dir", str(state), "doctor"]) == 0
+    out = capsys.readouterr().out
+    assert "OK: workspace writable" in out
+    assert "OK: policy valid" in out
+
+
+def test_cli_doctor_json_does_not_write_audit_artifacts(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    capsys.readouterr()
+    assert main(["--root", str(root), "--state-dir", str(state), "doctor", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["registry_valid"] is True
+    assert not (state / "journal.jsonl").exists()
