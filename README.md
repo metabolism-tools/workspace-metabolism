@@ -252,10 +252,11 @@ template that fails when the score drops below a threshold is in
 
 ## Agents
 
-`wm mcp` runs a zero-dependency MCP stdio server. Agents can audit, explain,
-and run dry-run clean plans themselves; `clean` only executes when the caller
-explicitly passes `execute=true`, and the policy file still decides
-everything. The end-of-loop ritual is automated in
+`wm mcp` runs a zero-dependency MCP stdio server. Agents can init a policy,
+audit, explain, verify, and dry-run clean plans themselves; `clean` only
+executes when the caller explicitly passes `execute=true`, `rollback` restores
+a previous run from the recycle area (SHA-256 verified), and the policy file
+still decides everything. The end-of-loop ritual is automated in
 [examples/micro_metabolism.py](examples/micro_metabolism.py) — wire it into a
 session-end hook so every loop ends with a checkup.
 
