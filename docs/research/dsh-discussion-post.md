@@ -25,10 +25,12 @@ the policy allows. Cleanup moves things to a recycle area with per-file
 SHA-256 hashes and a hash-chained journal, so everything is undoable and
 verifiable.
 
-In a DSH session, the agent gets five tools: `wm_audit` (read-only checkup),
+In a DSH session, the agent gets seven tools: `wm_audit` (read-only checkup),
 `wm_health` (0-100 score), `wm_explain` (why a path is graded as it is),
-`wm_verify` (journal integrity), and `wm_clean` (dry-run by default;
-execution still requires the policy's approval gates).
+`wm_verify` (journal integrity), `wm_init` (scaffold the policy file),
+`wm_rollback` (SHA-256-verified restore from the recycle area), and
+`wm_clean` (dry-run by default; execution still requires the policy's
+approval gates).
 
 The whole integration is one `cordis.yml` row:
 
@@ -53,8 +55,10 @@ wm audit       # read-only checkup
 wm health      # 0-100 score
 ```
 
-Status, honestly: v0.2.1, no external users yet, policy schema may shift
-before v1.0. I'm sharing it because the "everything is a plugin" philosophy
+Status, honestly: v0.2.3, no external users yet, policy schema may shift
+before v1.0 — but the MCP server now scores 92/100 (grade A) on
+[Glama's tool-definition-quality evaluation](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism/score).
+I'm sharing it because the "everything is a plugin" philosophy
 makes DSH a natural home for a governance layer, and I'd like to know whether
 other people find a *workspace health score* a useful signal across long
 sessions — or whether the more interesting direction is a session-end hook
