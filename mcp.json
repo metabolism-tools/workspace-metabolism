@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "workspace-metabolism": {
+      "command": "wm",
+      "args": ["mcp"]
+    }
+  }
+}
