@@ -1,0 +1,29 @@
+# Opt-in DeepSeek Harness integration: expose workspace-metabolism's seven MCP
+# tools (wm_audit / wm_health / wm_explain / wm_verify / wm_clean / wm_init /
+# wm_rollback) to the DSH agent through the official third-party bridge,
+# @deepseek-ai/dsh-mcp-client.
+#
+# Prerequisites
+#   1. Install wm and put it on PATH:  pip install workspace-metabolism
+#   2. Load this file one of two ways:
+#        a) Merge the row into your project's cordis.yml (permanent).
+#        b) Try it without touching any config:
+#             pnpm dsh web --patch ./examples/dsh/wm.cordis.yml
+#      (the `pnpm dsh ...` command is DSH's launcher; adjust to your install)
+#
+# Notes
+#   - Tools appear to the model as mcp__wm__wm_audit, mcp__wm__wm_health, ...
+#   - wm governs the workspace the DSH process is launched from (process.cwd()).
+#     To pin another workspace, put the global flags BEFORE the subcommand:
+#         args: [--root, /absolute/path/to/workspace, mcp]
+#   - clean is dry-run unless the agent passes execute=true; the policy file
+#     (metabolism.json) still decides everything. See docs/dsh-integration.md.
+- insert:
+    - id: workspace-metabolism
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: wm
+        transport: stdio
+        command: wm
+        args: [mcp]
+        cwd: !!js process.cwd()
