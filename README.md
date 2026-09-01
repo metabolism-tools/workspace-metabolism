@@ -112,6 +112,16 @@ A recorded run (2026-08-16, wm 0.2.0) is in
 (raw log:
 [docs/publish/benchmark-run-20260816.txt](docs/publish/benchmark-run-20260816.txt)).
 
+### Case study: a 20.7 GB database that stalled a research engine
+
+`wm slim` was born from a production incident, and the dogfooding round
+produced the most honest review the tool has had. Read
+[docs/case-studies/research-engine-db-rot.md](docs/case-studies/research-engine-db-rot.md):
+three failure modes (dead work units, database rot, silently-dead jobs), the
+fixes, and what we found when we used `wm slim` to verify them — including a
+policy that was stripping the wrong field and two path-matching bugs that only
+real usage exposed.
+
 ## 🧬 Philosophy
 
 `workspace-metabolism` treats your AI-generated workspace as a living system,
