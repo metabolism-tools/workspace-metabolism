@@ -1,28 +1,45 @@
 % =====================================================================
-% ICSE 2027 NIER submission skeleton (double-anonymous)
-% Generated 2026-08-18 from docs/paper/nier-icse2027.md
-% Deadline: Fri 23 Oct 2026, AoE (UTC-12h) -- per official researchr page
-% Requirements (verified from the ICSE 2027 NIER call):
-%   - main text <= 4 pages (incl. figures/tables), +1 page references
-%   - MUST contain a section titled "Future Plans"
-%   - double-anonymous: no author names / identifying links
-% Compile: pdflatex nier-icse2027 && bibtex nier-icse2027 && pdflatex nier-icse2027 && pdflatex nier-icse2027
+% ICSE 2027 NIER -- PUBLIC version for arXiv (double-anonymity removed)
+% Generated 2026-09-02 from nier-icse2027.tex
+% ---------------------------------------------------------------------
+% USAGE (arXiv, 2026 endorsement policy):
+%   1. Register arXiv account (real name + ORCID).
+%   2. Get endorsement for cs.SE:
+%        - auto: institutional email + existing claimed papers, OR
+%        - manual: contact an eligible endorser from your cited papers
+%          (see docs/paper/submission-checklist.md appendix F for the
+%          candidate list: Abrahamsson / Waseem / Tang / Fan / Kemell).
+%   3. Post to arXiv AFTER the ICSE 2027 NIER notification (2026-12-18);
+%      never post "under submission" during double-anonymous review.
+%   4. Upload .tex + .bib only -- arXiv compiles them (do NOT upload PDF).
+%   5. Subjects: cs.SE (primary), cs.AI (secondary cross-list).
+%   6. License: arXiv default "perpetual, non-exclusive license" or
+%      CC BY 4.0 -- publish BEFORE signing the ACM copyright form.
+%   7. Do not write "under submission" in the arXiv Comments field;
+%      after acceptance you may write "To appear at ICSE 2027 (NIER)".
+% Compile: pdflatex nier-icse2027-public && bibtex nier-icse2027-public && pdflatex nier-icse2027-public && pdflatex nier-icse2027-public
 % =====================================================================
-\documentclass[sigconf,anonymous]{acmart}
+\documentclass[sigconf]{acmart}
 
-% --- double-anonymous helpers --------------------------------------
-\settopmatter{printacmref=false}   % no ACM reference footer during review
-\renewcommand\footnotetextcopyrightpermission[1]{}  % no copyright block
-\setcopyright{none}
-% If the acmart "anonymous" option blanks authors automatically, leave
-% the \author block as-is; otherwise keep it empty for submission:
-\author{Anonymous Author(s)}
-\affiliation{\institution{Anonymous Institution}}
-\email{anonymous@example.com}
+% --- real author block (FILL IN before posting) ---------------------
+\author{First Author}
+\affiliation{%
+  \institution{Your Institution}
+  \city{Your City}
+  \country{Your Country}}
+\email{first.author@example.com}
+\orcid{0000-0000-0000-0000}
 
-% --- conference metadata (verify exact strings in the official CFP) --
+\author{Second Author}
+\affiliation{%
+  \institution{Your Institution}
+  \city{Your City}
+  \country{Your Country}}
+\email{second.author@example.com}
+\orcid{0000-0000-0000-0000}
+
+% --- conference metadata ---------------------------------------------
 \acmConference[ICSE '27]{International Conference on Software Engineering}{2027}{TBD}
-\acmSubmissionID{TODO: assigned at submission time}
 \acmYear{2027}
 \copyrightyear{2027}
 
@@ -156,9 +173,16 @@ This section outlines the work we plan to turn this new idea into a full-length 
 \section{Conclusion}
 The rapid adoption of vibe coding has created a new challenge: the uncontrolled accumulation of workspace byproducts that degrade agent performance. We have introduced \textbf{Agentic Metabolic Engineering} as a paradigm for addressing this challenge, defined four metabolic phases, and presented \texttt{workspace-metabolism}, a zero-dependency Python CLI. Through a reproducible benchmark, we have shown that a metabolized workspace maintains order (2 active files) while an unmanaged workspace accumulates 242 files. If Harness Engineering is the skeleton of an agent and Loop Engineering its heartbeat, then \textbf{Agentic Metabolic Engineering is its digestive system}---keeping the workspace alive for the next cycle.
 
-% Double-anonymous: DO NOT include the repository URL here during review.
-% Restore for camera-ready:
-% The tool is open-source: \url{https://github.com/metabolism-tools/workspace-metabolism}
+% Public artifact link (arXiv version only -- restore for camera-ready too):
+The tool is open-source: \url{https://github.com/metabolism-tools/workspace-metabolism}
+
+\begin{acks}
+The authors thank the open-source community for feedback on early releases of \texttt{workspace-metabolism}.
+
+% ACM/IEEE policy: disclose generative-AI assistance here (fill in truthfully).
+% Example: "ChatGPT was utilized to generate sections of this Work,
+% including text, tables, graphs, code, data, citations, etc."
+\end{acks}
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{nier-references}

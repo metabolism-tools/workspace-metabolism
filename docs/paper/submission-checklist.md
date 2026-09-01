@@ -1,7 +1,15 @@
 # ICSE 2027 NIER 投稿清单（Submission Checklist）
 
 > 首次投稿专用。所有日期均来自 [ICSE 2027 官方页面](https://conf.researchr.org/track/icse-2027/icse-2027-new-ideas-and-emerging-results--nier-) 与 [会议主页](https://conf.researchr.org/home/icse-2027)（2026-08-18 核实）。
-> 配套文档：投稿稿 [nier-icse2027.md](nier-icse2027.md)｜LaTeX [nier-icse2027.tex](nier-icse2027.tex)｜参考文献 [nier-references.bib](nier-references.bib)｜期刊版 [agentic-metabolic-engineering-paper-v2.md](agentic-metabolic-engineering-paper-v2.md)。
+> 配套文档：投稿稿 [nier-icse2027.md](nier-icse2027.md)｜LaTeX [nier-icse2027.tex](nier-icse2027.tex)｜参考文献 [nier-references.bib](nier-references.bib)｜期刊版 [agentic-metabolic-engineering-paper-v2.md](agentic-metabolic-engineering-paper-v2.md)｜arXiv 公开版 [nier-icse2027-public.tex](nier-icse2027-public.tex)。
+
+> **进度更新（2026-09-02，AI 侧已完成项）**：
+> - ✅ A4 内容终检：引用编号 15/15 按首次出现顺序与 .bib 一一对应（tex 与 md 均已核）；摘要数字一致（2 vs 242 / 93.5% / 78% / 14–18%）；Future Plans 章节存在；四阶段表、结果表完整
+> - ✅ A2 双盲扫描：tex 无作者名/邮箱/个人路径；真实仓库 URL 已注释（`% Restore for camera-ready`）；参考文献全为他人作品（zclean/agent-gc 属第三方，不泄露身份）
+> - ✅ 篇幅估算：主文约 1500 词 + 2 表格，acmart sigconf 4 页限制内无风险
+> - ✅ arXiv 公开版已生成：`nier-icse2027-public.tex`（去 anonymous、实名占位、恢复仓库链接、acks + AI 披露占位）
+> - ✅ 卫生：`workspace-metabolism/workspace-metabolism/` 旧嵌套克隆已删除（不影响匿名镜像）
+> - ⏳ 待办：本机无 LaTeX 工具链（pdflatex/bibtex 均未安装）——**编译需在有网环境用 Overleaf 或安装 MiKTeX/TeX Live 完成**
 
 ## 关键日期（北京时间约 +8h，AoE 截止按 UTC-12 换算，实际以官方为准）
 

@@ -247,9 +247,9 @@ Conversely, we identify four anti-patterns observed in current practice:
 
 **Benchmark scope**: Our evaluation uses simulated agentic loops, not real AI development sessions. While the file generation patterns are representative, real-world validation is needed. The metabolic metaphor itself deserves care: terms such as *metabolism* and *digestion* are analogies, not laws—the framework's claims rest on measurable indicators (file counts, recycle size, journal integrity), not on the metaphor [26].
 
-**Tool maturity**: `workspace-metabolism` is in active development (v0.2.0). Production hardening and broader adoption are ongoing.
+**Tool maturity**: `workspace-metabolism` is in active development (v0.4.0, 2026-09): the 0–100 health score and CI gate template (v0.3), policy-driven in-place database trimming (`wm slim`, v0.3), and an MCP governance proxy (`wm gate`, v0.4) that checks every agent tool call against policy are all shipped. Production hardening and broader adoption are ongoing.
 
-**Future directions** include: (1) a workspace health score synthesizing multiple metabolic debt metrics; (2) deeper MCP integration for fully autonomous micro-metabolism; (3) integration with existing CI/CD pipelines; (4) longitudinal studies of metabolic debt in production AI development workflows.
+**Future directions** include: (1) decomposing the shipped health score into a multidimensional model aligned with data-quality frameworks (Wang & Strong) and studying cross-repository comparability; (2) closing the loop into fully autonomous micro-metabolism (agents decide dispositions themselves, with the audit trail preserved); (3) deeper CI/CD integration; (4) longitudinal studies of metabolic debt in production AI development workflows.
 
 **Open problems**:
 
@@ -580,9 +580,9 @@ Agentic 代谢工程定义四个阶段，每个阶段映射到 `workspace-metabo
 
 **基准范围**：我们的评估使用模拟的智能体循环，而非真实的 AI 开发会话。虽然文件生成模式具有代表性，但仍需真实世界验证。代谢隐喻本身也需谨慎：*代谢*、*消化*等术语是类比而非定律——框架的主张建立在可测指标（文件数、回收区大小、日志完整性）之上，而非隐喻之上 [26]。
 
-**工具成熟度**：`workspace-metabolism` 正在积极开发中（v0.2.0）。生产环境加固和更广泛的采用仍在进行中。
+**工具成熟度**：`workspace-metabolism` 正在积极开发中（v0.4.0，2026-09）：0–100 健康分与 CI 门禁模板（v0.3）、策略驱动的库内瘦身 `wm slim`（v0.3）、以及逐次检查智能体工具调用的 MCP 治理代理 `wm gate`（v0.4）均已发布。生产环境加固和更广泛的采用仍在进行中。
 
-**未来方向**包括：（1）综合多项代谢债务指标的工作区健康评分；（2）更深入的 MCP 集成以实现完全自主的微代谢；（3）与现有 CI/CD 管道的集成；（4）生产 AI 开发工作流中代谢债务的纵向研究。
+**未来方向**包括：（1）把已发布的健康分分解为对齐数据质量框架（Wang & Strong）的多维模型，并研究跨仓库可比性；（2）闭合完全自主微代谢的循环（智能体自行决定处置，审计轨迹保留）；（3）更深的 CI/CD 集成；（4）生产 AI 开发工作流中代谢债务的纵向研究。
 
 **开放问题**：
 

@@ -110,9 +110,9 @@ This section outlines the work we plan to turn this new idea into a full-length 
 
 **1. Real-World Validation.** Our benchmark uses simulated agentic loops. We plan to collect longitudinal data from real AI development workflows, measuring metabolic debt accumulation and its correlation with agent performance metrics (task completion time, error rates).
 
-**2. Workspace Health Score.** We will synthesize multiple metabolic debt metrics—active file counts, recycle area size, audit trail completeness—into a single health score, enabling CI/CD integration as a quality gate.
+**2. Workspace Health Score.** Our shipped 0–100 health score (journal auditability, governance coverage, rot burden, recycle readiness) already enables CI/CD gating; we plan to decompose it into a multidimensional model aligned with data-quality frameworks, and to study cross-repository comparability.
 
-**3. Deeper Agent Integration.** We will extend the MCP (Model Context Protocol) server interface to enable fully autonomous micro-metabolism, where agents invoke `wm audit --json` and make cleanup decisions as part of their observation phase.
+**3. Deeper Agent Integration.** The shipped MCP server already lets agents invoke `wm audit --json` in their observation phase, and a governance proxy (`wm gate`) checks every tool call against policy; we plan to close the loop into fully autonomous micro-metabolism while preserving auditability.
 
 **4. Metabolic Debt Theory.** We will formalize the relationship between metabolic debt and agent performance, developing predictive models of when and how unmanaged byproducts degrade agent effectiveness.
 
