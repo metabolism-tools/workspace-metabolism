@@ -1,0 +1,104 @@
+"""Tests for the slim (in-place SQLite trimming) capability."""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from workspace_metabolism.core import db_slim_policy, slim  # noqa: E402
+from workspace_metabolism.core import journal_path  # noqa: E402
+
+
+def _make_db(path: Path, n_old: int = 4, n_new: int = 2) -> None:
+    con = sqlite3.connect(str(path))
+    con.execute("create table epochs (epoch_id text, created_at text)")
+    con.execute("create table work_units (work_unit_id text, epoch_id text, payload_json text)")
+    for i in range(n_old):
+        con.execute("insert into epochs values (?, ?)", (f"e{i}", f"2026-08-0{i + 1}T00:00:00"))
+        big = json.dumps({"metrics": {"ic": 0.1}, "factor_observations": [{"date": "2026-08-01", "value": i} for _ in range(50)]})
+        con.execute("insert into work_units values (?, ?, ?)", (f"u{i}", f"e{i}", big))
+    for i in range(n_new):
+        con.execute("insert into epochs values (?, ?)", (f"en{i}", f"2026-08-3{i + 1}T00:00:00"))
+        small = json.dumps({"metrics": {"ic": 0.2}})
+        con.execute("insert into work_units values (?, ?, ?)", (f"un{i}", f"en{i}", small))
+    con.commit()
+    con.close()
+
+
+def _policy(tmp_path: Path) -> Path:
+    p = tmp_path / "metabolism.json"
+    p.write_text(json.dumps({
+        "version": 1,
+        "entries": [{
+            "path": "data/app.db", "category": "C5", "grade": "G2", "cleanup": "never",
+            "db_slim": {
+                "table": "work_units",
+                "blob_column": "payload_json",
+                "strip_keys": ["factor_observations"],
+                "keep_recent": {"table": "epochs", "column": "created_at", "n": 2},
+                "vacuum_min_gb": 0.0,
+            },
+        }],
+    }), encoding="utf-8")
+    return p
+
+
+def test_slim_dry_run_reports_and_keeps_recent(tmp_path: Path) -> None:
+    db = tmp_path / "data" / "app.db"
+    db.parent.mkdir(parents=True)
+    _make_db(db, n_old=4, n_new=2)
+    report = slim(db, _policy(tmp_path), tmp_path / "state", yes=False)
+    assert report["status"] == "dry_run"
+    assert report["rows_scanned"] == 6
+    assert report["rows_stripped"] == 4  # only old epochs; newest 2 kept
+    assert report["reclaimed_bytes"] > 0
+    # dry-run must not change anything
+    con = sqlite3.connect(str(db))
+    blob = con.execute("select payload_json from work_units where work_unit_id='u0'").fetchone()[0]
+    con.close()
+    assert "factor_observations" in blob
+    # journaled
+    j = json.loads(journal_path(tmp_path / "state").read_text(encoding="utf-8").splitlines()[-1])
+    assert j["action"] == "slim" and j["status"] == "dry_run"
+
+
+def test_slim_execute_strips_and_journals(tmp_path: Path) -> None:
+    db = tmp_path / "data" / "app.db"
+    db.parent.mkdir(parents=True)
+    _make_db(db, n_old=4, n_new=2)
+    report = slim(db, _policy(tmp_path), tmp_path / "state", yes=True)
+    assert report["status"] == "ok"
+    assert report["rows_stripped"] == 4
+    assert report["vacuum_done"] is True
+    con = sqlite3.connect(str(db))
+    old_blob = json.loads(con.execute("select payload_json from work_units where work_unit_id='u0'").fetchone()[0])
+    new_blob = json.loads(con.execute("select payload_json from work_units where work_unit_id='un0'").fetchone()[0])
+    con.close()
+    assert "factor_observations" not in old_blob
+    assert "factor_observations" not in new_blob  # new rows have no such key anyway
+    assert old_blob["metrics"]["ic"] == 0.1
+    j = json.loads(journal_path(tmp_path / "state").read_text(encoding="utf-8").splitlines()[-1])
+    assert j["action"] == "slim" and j["status"] == "ok" and j["rows_stripped"] == 4
+
+
+def test_slim_policy_lookup(tmp_path: Path) -> None:
+    reg = _policy(tmp_path)
+    import json as _json
+    policy = db_slim_policy(_json.loads(reg.read_text(encoding="utf-8")), Path("/x/data/app.db"))
+    assert policy["table"] == "work_units"
+    assert policy["blob_column"] == "payload_json"
+    assert policy["strip_keys"] == ["factor_observations"]
+    assert policy["keep_recent"]["n"] == 2
+
+
+def test_slim_requires_table_and_keys(tmp_path: Path) -> None:
+    db = tmp_path / "app.db"
+    _make_db(db)
+    with pytest.raises(SystemExit):
+        slim(db, None, tmp_path / "state", yes=False)

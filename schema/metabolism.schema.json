@@ -4,40 +4,149 @@
   "title": "workspace-metabolism policy",
   "description": "One policy file controls the lifecycle of files in an AI-driven workspace.",
   "type": "object",
-  "required": ["version", "entries"],
+  "required": [
+    "version",
+    "entries"
+  ],
   "properties": {
-    "version": { "const": 1 },
-    "$schema": { "type": "string" },
-    "description": { "type": "string" },
-    "never_clean": { "type": "array", "items": { "type": "string" } },
+    "version": {
+      "const": 1
+    },
+    "$schema": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "never_clean": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "defaults": {
       "type": "object",
       "properties": {
-        "recycle_retention_days": { "type": "integer", "minimum": 1 },
-        "max_item_mb": { "type": "number", "minimum": 1 },
-        "disk_alert_free_gb": { "type": "number", "minimum": 0 },
-        "disk_alert_free_pct": { "type": "number", "minimum": 0, "maximum": 100 },
-        "dupe_scan_dirs": { "type": "array", "items": { "type": "string" } }
+        "recycle_retention_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_item_mb": {
+          "type": "number",
+          "minimum": 1
+        },
+        "disk_alert_free_gb": {
+          "type": "number",
+          "minimum": 0
+        },
+        "disk_alert_free_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "dupe_scan_dirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "entries": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["path", "grade", "cleanup"],
+        "required": [
+          "path",
+          "grade",
+          "cleanup"
+        ],
         "properties": {
-          "path": { "type": "string" },
-          "grade": { "enum": ["G1", "G2", "G3", "G4"] },
-          "cleanup": { "enum": ["never", "auto", "approve"] },
-          "retention_days": { "type": "integer", "minimum": 1 },
-          "scope": { "enum": ["files_only"] },
-          "protected": { "type": "boolean" },
-          "remote_authoritative": { "type": "boolean" },
-          "category": { "type": "string" },
-          "note": { "type": "string" },
-          "owner": { "type": "string" },
-          "intent": { "type": "string" },
-          "review_after": { "type": "string" }
+          "path": {
+            "type": "string"
+          },
+          "grade": {
+            "enum": [
+              "G1",
+              "G2",
+              "G3",
+              "G4"
+            ]
+          },
+          "cleanup": {
+            "enum": [
+              "never",
+              "auto",
+              "approve"
+            ]
+          },
+          "retention_days": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "scope": {
+            "enum": [
+              "files_only"
+            ]
+          },
+          "protected": {
+            "type": "boolean"
+          },
+          "remote_authoritative": {
+            "type": "boolean"
+          },
+          "category": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "review_after": {
+            "type": "string"
+          },
+          "db_slim": {
+            "type": "object",
+            "description": "In-place SQLite trimming policy for wm slim (table/blob column/keys to strip/keep-recent/vacuum threshold)",
+            "properties": {
+              "table": {
+                "type": "string"
+              },
+              "blob_column": {
+                "type": "string"
+              },
+              "strip_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "keep_recent": {
+                "type": "object",
+                "properties": {
+                  "table": {
+                    "type": "string"
+                  },
+                  "column": {
+                    "type": "string"
+                  },
+                  "n": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "vacuum_min_gb": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
         }
       }
     }
