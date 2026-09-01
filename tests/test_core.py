@@ -893,3 +893,50 @@ def test_audit_memory_section_present_and_empty_without_mounts(env, tmp_path: Pa
     assert mem["workspace"] is None
     assert mem["candidates"] == []
     assert report["summary"]["memory_candidates"] == 0
+
+
+def test_most_specific_entry_wins_in_explain(tmp_path: Path) -> None:
+    """A generic entry must not shadow a more specific one in explain."""
+    root = tmp_path / "ws"
+    (root / "data").mkdir(parents=True)
+    (root / "data" / "app.db").write_text("x", encoding="utf-8")
+    reg = tmp_path / "metabolism.json"
+    reg.write_text(json.dumps({
+        "version": 1,
+        "entries": [
+            {"path": "data", "grade": "G2", "cleanup": "never"},
+            {"path": "data/app.db", "grade": "G4", "cleanup": "auto",
+             "retention_days": 7},
+        ],
+    }), encoding="utf-8")
+    info = m.explain(root, reg, tmp_path / "state", "data/app.db")
+    assert info["entry_path"] == "data/app.db"
+    assert info["grade"] == "G4"
+    assert info["managed"] is True
+    # parent path still resolves to the generic entry
+    parent = m.explain(root, reg, tmp_path / "state", "data")
+    assert parent["entry_path"] == "data"
+
+
+def test_plan_blocks_candidate_containing_specific_never_child(tmp_path: Path) -> None:
+    """A generic G4 dir candidate must not sweep a child protected by a specific entry."""
+    root = tmp_path / "ws"
+    d = root / "data"
+    d.mkdir(parents=True)
+    (d / "cache.json").write_text("x", encoding="utf-8")
+    (d / "app.db").write_text("x", encoding="utf-8")
+    old = datetime.now().timestamp() - 60 * 86400
+    for f in d.rglob("*"):
+        os.utime(f, (old, old))
+    os.utime(d, (old, old))
+    reg = tmp_path / "metabolism.json"
+    reg.write_text(json.dumps({
+        "version": 1,
+        "entries": [
+            {"path": "data", "grade": "G4", "cleanup": "auto", "retention_days": 7},
+            {"path": "data/app.db", "grade": "G2", "cleanup": "never"},
+        ],
+    }), encoding="utf-8")
+    items = m.plan_items(root, json.loads(reg.read_text(encoding="utf-8")), {"G4"}, tmp_path / "state")
+    assert items, "expected the generic dir candidate"
+    assert items[0]["reason"] == "contains a path protected by a more specific entry"
