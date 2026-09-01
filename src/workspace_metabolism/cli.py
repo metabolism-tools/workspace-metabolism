@@ -40,8 +40,12 @@ def _resolve_registry(root: Path, raw: str | None) -> Path | None:
         return Path(raw).resolve()
     for name in POLICY_FILENAMES:
         candidate = root / name
-        if candidate.exists():
-            return candidate.resolve()
+        try:
+            if candidate.exists():
+                return candidate.resolve()
+        except OSError:
+            # unreadable path (e.g. another user's home): treat as absent
+            continue
     return None
 
 
