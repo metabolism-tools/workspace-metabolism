@@ -186,6 +186,7 @@ policy file. Advanced users can start from
 | `health` | Workspace health score (0-100), with `--json` and `--badge` output |
 | `doctor` | Read-only readiness check for the workspace, policy, state directory and active locks |
 | `govern <action>` | Check whether an AI action is allowed by policy and record the decision |
+| `gate --target ...` | MCP governance proxy: every tool call of the wrapped server is checked against the policy first |
 | `slim --db PATH` | Policy-driven in-place trimming of heavy JSON fields in a SQLite database (journaled; dry-run by default) |
 | `mcp` | MCP stdio server so agents can run micro-metabolism themselves |
 
@@ -223,9 +224,29 @@ wm govern execute --path scripts/release.ps1 --approve-by "name"
 wm govern network --approve-by "name" --json
 ```
 
+**`wm gate` turns decisions into enforcement.** It wraps any MCP stdio server
+and checks every `tools/call` against the policy before forwarding it;
+denied calls never reach the target and every decision lands in the journal:
+
+```bash
+wm gate --target "python -m my_mcp_server"
+```
+
+Map tool names to actions with `tool_patterns` (glob), e.g.
+`"fs_write*": "write"`, `"shell*": "execute"`. Unmatched tools default to the
+`execute` action. For tools whose calls carry a preview mode, pass
+`"preview": true` in the call arguments to satisfy `requires_preview`.
+
 Every decision includes the policy hash and is written to the same
-hash-chained journal. The approver value is an auditable declaration, not an
-authentication mechanism.
+hash-chained journal; `govern` returns a `decision_id` that `clean` /
+`rollback` / `slim` accept via `--decision-id`, so the journal shows the full
+**intent → decision → execution** chain. The approver value is an auditable
+declaration, not an authentication mechanism.
+
+> **Honest boundary:** `wm gate` is a governance and audit layer, **not a
+> sandbox**. A compromised or malicious agent can bypass the proxy and talk
+> to the target directly. Gate governs the cooperative agent; OS-level
+> sandboxing governs the hostile one.
 
 ## Policy file
 

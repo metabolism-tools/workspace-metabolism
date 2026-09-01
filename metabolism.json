@@ -8,6 +8,11 @@
       ".git",
       ".venv"
     ],
+    "tool_patterns": {
+      "wm_*": "execute",
+      "fs_*": "write",
+      "shell_*": "execute"
+    },
     "actions": {
       "read": {
         "allow": true
