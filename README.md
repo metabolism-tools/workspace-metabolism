@@ -35,6 +35,7 @@ wm init                                 # 生成策略文件 metabolism.json
 wm audit                                # 只读体检，给文件贴营养标签
 wm clean --grades G4 --yes              # 回收过期项（默认 dry-run，确认后加 --yes）
 wm rollback <run_id>                    # 删错了？一键原样找回
+wm govern write --path src/main.py      # 写文件前先问策略：允许吗？（AI 执行点拦截）
 wm slim --db data/app.db --yes          # 数据库也会膨胀：策略驱动的库内瘦身（v0.3）
 ```
 
