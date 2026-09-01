@@ -206,3 +206,31 @@ def test_cli_doctor_json_does_not_write_audit_artifacts(tmp_path: Path, capsys):
     data = json.loads(capsys.readouterr().out)
     assert data["registry_valid"] is True
     assert not (state / "journal.jsonl").exists()
+
+
+def test_cli_govern_denies_without_preview(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    capsys.readouterr()
+    assert main(["--root", str(root), "--state-dir", str(state), "govern", "write", "--path", "README.md"]) == 2
+    out = capsys.readouterr().out
+    assert "DENY: write" in out
+    assert "a preview is required" in out
+
+
+def test_cli_govern_allows_with_preview_json(tmp_path: Path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    state = tmp_path / "state"
+    main(["--root", str(root), "--state-dir", str(state), "init"])
+    capsys.readouterr()
+    assert main(
+        [
+            "--root", str(root), "--state-dir", str(state), "govern", "write",
+            "--path", "README.md", "--preview", "--json",
+        ]
+    ) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["allowed"] is True
