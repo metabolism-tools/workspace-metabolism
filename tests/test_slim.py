@@ -117,6 +117,27 @@ def test_slim_policy_generic_entry_does_not_shadow_specific(tmp_path: Path) -> N
     assert policy2["table"] is None
 
 
+def test_slim_policy_directory_entry_matches_db_inside(tmp_path: Path) -> None:
+    """A directory entry (data/research/work_ledger) must match a DB inside it."""
+    reg = tmp_path / "metabolism.json"
+    reg.write_text(json.dumps({
+        "version": 1,
+        "entries": [
+            {"path": "data", "grade": "G2", "cleanup": "never"},
+            {"path": "data/research/work_ledger", "grade": "G2", "cleanup": "never",
+             "db_slim": {"table": "research_work_unit", "blob_column": "checkpoint_json",
+                         "strip_keys": ["ic_by_session"]}},
+        ],
+    }), encoding="utf-8")
+    import json as _json
+    reg_data = _json.loads(reg.read_text(encoding="utf-8"))
+    db = Path("/opt/dongzhu/quant_v10/data/research/work_ledger/marathon.db")
+    policy = db_slim_policy(reg_data, db)
+    assert policy["table"] == "research_work_unit", policy
+    assert policy["blob_column"] == "checkpoint_json"
+    assert policy["strip_keys"] == ["ic_by_session"]
+
+
 def test_slim_requires_table_and_keys(tmp_path: Path) -> None:
     db = tmp_path / "app.db"
     _make_db(db)
