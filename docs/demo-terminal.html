@@ -175,7 +175,7 @@ async function play() {
     if (line.length && line[0][1].startsWith("$ ")) await sleep(PAUSE_CMD);
   }
   cursor.remove();
-  screen.appendChild(span("dim", "\n\nworkspace alive. loops keep running. "));
+  screen.appendChild(span("dim", "\n\nworkspace usable. loops keep running. "));
   screen.appendChild(span("ok", "✓"));
 }
 

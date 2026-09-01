@@ -17,9 +17,14 @@ audit, reversible cleanup, rollback, and hash-chained verification. Python
 
 ▶️ Watch the 60-second animated demo: [docs/demo-terminal.html](docs/demo-terminal.html)
 
-**Status:** v0.3.0 — a proposal plus reference implementation. Early days: no
+**Status:** v0.4.0 — a proposal plus reference implementation. Early days: no
 external users yet, and the policy schema may shift before v1.0. Early adopters
 are welcome to break it on weird directory structures.
+
+This repo has two linked ideas:
+
+- **Agentic Metabolic Engineering** is the method: how to think about workspace lifecycle.
+- **AI governance as code** is the implementation: how `wm` applies that method with policy files and commands.
 
 ## 中文快速上手（30 秒）
 
@@ -127,13 +132,12 @@ learning window. Real usage is the final test.
 
 ## 🧬 Philosophy
 
-`workspace-metabolism` treats your AI-generated workspace as a living system,
-inspired by biological metabolism: audit → clean → verify → rollback, with
-recyclable cleanup and a hash-chained audit trail. Cleanup is the means;
-metabolism is the frame. The one-liner: **loops keep the agent running;
-metabolism keeps the workspace alive.** We call this framing **Agentic
-Metabolic Engineering**
-— managing the byproducts of agent-driven software workspaces. Full write-up:
+`workspace-metabolism` treats your AI-generated workspace as a finite system:
+audit → clean → verify → rollback, with recyclable cleanup and a hash-chained
+audit trail. Cleanup is the means; metabolism is the frame. The one-liner:
+**loops keep the agent running; metabolism keeps the workspace usable.** We
+call this framing **Agentic Metabolic Engineering** — managing the byproducts
+of agent-driven software workspaces. Full write-up:
 [docs/philosophy.md](docs/philosophy.md) · [the story](docs/narrative.md) ·
 [competitive analysis](docs/competitive-analysis.md) ·
 [academic anchors](docs/academic-anchors.md).
@@ -214,7 +218,8 @@ agent-triggered runs cannot interleave journal and recycle operations.
 
 ### AI governance as code
 
-The optional `ai_governance` section uses the same policy file to check AI
+The optional `ai_governance` section is the concrete implementation of this
+repository's AI governance layer. It uses the same policy file to check AI
 actions before they happen. Unknown actions are denied by default; write
 actions can require a preview, while execute, delete and network actions can
 require a named approver. `wm govern` only makes and records a decision; it

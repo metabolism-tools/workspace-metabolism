@@ -1,5 +1,9 @@
 # What workspace-metabolism is not
 
+This page exists to draw the boundary around the project. The philosophy page
+explains the method (`Agentic Metabolic Engineering`); this page explains
+what the tool is not.
+
 This page answers the four most common (and most important) objections to a
 tool like this. They came from real reviewers — including a sharp, public
 review of this project on [anthropics/claude-code#8856](https://github.com/anthropics/claude-code/issues/8856)

@@ -4,6 +4,10 @@ Status: proposal, 2026-08-15. This document tells the story; the definitions
 live in [philosophy.md](philosophy.md). It is written to be usable as a blog
 post, a Show HN companion, or a conference talk outline.
 
+It connects the method and the product: `Agentic Metabolic Engineering` is
+the framing, and `AI governance as code` is how that framing appears in
+`workspace-metabolism`.
+
 Short handle: **Workspace Metabolism**. Formal name: **Agentic Metabolic
 Engineering**.
 
@@ -14,7 +18,7 @@ discipline.
 
 ## 0. The one-liner
 
-> **Loops keep the agent running; metabolism keeps the workspace alive.**
+> **Loops keep the agent running; metabolism keeps the workspace usable.**
 
 Everything below is an unpacking of that sentence.
 
