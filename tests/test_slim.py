@@ -97,6 +97,26 @@ def test_slim_policy_lookup(tmp_path: Path) -> None:
     assert policy["keep_recent"]["n"] == 2
 
 
+def test_slim_policy_generic_entry_does_not_shadow_specific(tmp_path: Path) -> None:
+    """A generic `data` entry must not shadow the specific `data/app.db` entry."""
+    reg = tmp_path / "metabolism.json"
+    reg.write_text(json.dumps({
+        "version": 1,
+        "entries": [
+            {"path": "data", "grade": "G2", "cleanup": "never"},
+            {"path": "data/app.db", "grade": "G2", "cleanup": "never",
+             "db_slim": {"table": "sessions", "blob_column": "payload_json",
+                         "strip_keys": ["factor_observations"]}},
+        ],
+    }), encoding="utf-8")
+    import json as _json
+    policy = db_slim_policy(_json.loads(reg.read_text(encoding="utf-8")), Path("/ws/data/app.db"))
+    assert policy["table"] == "sessions", policy
+    # 无 db_slim 的泛条目不应误配给其他库
+    policy2 = db_slim_policy(_json.loads(reg.read_text(encoding="utf-8")), Path("/ws/data/other.db"))
+    assert policy2["table"] is None
+
+
 def test_slim_requires_table_and_keys(tmp_path: Path) -> None:
     db = tmp_path / "app.db"
     _make_db(db)

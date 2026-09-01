@@ -1456,7 +1456,9 @@ def db_slim_policy(registry: dict | None, db_path: Path) -> dict:
 
     ``keep_recent`` keeps rows whose reference value is among the newest N
     distinct values of the reference column untouched (e.g. the newest N
-    epochs). Everything not specified falls back to safe defaults.
+    epochs). Matching is path-segment precise (a generic ``data`` entry must
+    not shadow ``data/app.db``) and the longest matching entry wins.
+    Everything not specified falls back to safe defaults.
     """
     default: dict = {
         "table": None,
@@ -1467,14 +1469,20 @@ def db_slim_policy(registry: dict | None, db_path: Path) -> dict:
     }
     if not registry:
         return default
-    rel = str(db_path).replace("\\", "/")
+    rel_parts = tuple(PurePosixPath(str(db_path).replace("\\", "/")).parts)
+    best: tuple[int, dict] = (-1, default)
     for entry in registry.get("entries", []):
-        p = entry.get("path", "")
-        if rel.endswith(p) or p in rel:
+        p = str(entry.get("path", "")).strip("/").replace("\\", "/")
+        if not p:
+            continue
+        p_parts = tuple(PurePosixPath(p).parts)
+        if len(p_parts) > len(rel_parts):
+            continue
+        if rel_parts[-len(p_parts):] == p_parts and len(p_parts) > best[0]:
             policy = dict(default)
             policy.update(entry.get("db_slim") or {})
-            return policy
-    return default
+            best = (len(p_parts), policy)
+    return best[1]
 
 
 def slim(
