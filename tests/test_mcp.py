@@ -39,6 +39,7 @@ def test_tools_list():
         "wm_explain",
         "wm_verify",
         "wm_clean",
+        "wm_govern",
         "wm_init",
         "wm_rollback",
     }
@@ -72,6 +73,25 @@ def test_tool_call_explain(tmp_path):
         )
     )
     assert '"covered": true' in resp["result"]["content"][0]["text"]
+
+
+def test_tool_call_govern_denies_write_without_preview(tmp_path):
+    ctx = _ctx(tmp_path)
+    data = json.loads(ctx["registry_path"].read_text(encoding="utf-8"))
+    data["ai_governance"] = {
+        "default": "deny",
+        "actions": {"write": {"allow": True, "requires_preview": True}},
+    }
+    ctx["registry_path"].write_text(json.dumps(data), encoding="utf-8")
+    resp = json.loads(
+        handle_message(
+            '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"wm_govern","arguments":{"action":"write","paths":["README.md"]}}}',
+            ctx,
+        )
+    )
+    text = resp["result"]["content"][0]["text"]
+    assert '"allowed": false' in text
+    assert "a preview is required" in text
 
 
 def test_tool_call_unknown_tool():

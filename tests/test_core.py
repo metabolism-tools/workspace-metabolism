@@ -677,6 +677,70 @@ def test_init_policy_never_clean_includes_sensitive(tmp_path: Path):
     assert "*.pem" in data["never_clean"]
 
 
+def test_govern_write_requires_preview(env, tmp_path: Path):
+    root, state = env
+    reg = base_registry(tmp_path)
+    data = json.loads(reg.read_text(encoding="utf-8"))
+    data["ai_governance"] = {
+        "default": "deny",
+        "actions": {
+            "write": {"allow": True, "requires_preview": True},
+        },
+    }
+    reg.write_text(json.dumps(data), encoding="utf-8")
+    denied = m.govern(root, reg, state, "write", paths=["README.md"])
+    assert denied["allowed"] is False
+    assert "a preview is required" in denied["reasons"]
+    allowed = m.govern(root, reg, state, "write", paths=["README.md"], preview=True)
+    assert allowed["allowed"] is True
+
+
+def test_govern_execute_requires_approval(env, tmp_path: Path):
+    root, state = env
+    reg = base_registry(tmp_path)
+    data = json.loads(reg.read_text(encoding="utf-8"))
+    data["ai_governance"] = {
+        "default": "deny",
+        "actions": {
+            "execute": {"allow": True, "requires_approval": True},
+        },
+    }
+    reg.write_text(json.dumps(data), encoding="utf-8")
+    denied = m.govern(root, reg, state, "execute")
+    assert denied["allowed"] is False
+    assert "human approval is required" in denied["reasons"]
+    allowed = m.govern(root, reg, state, "execute", approver="tester")
+    assert allowed["allowed"] is True
+
+
+def test_govern_unknown_action_is_denied_and_journaled(env, tmp_path: Path):
+    root, state = env
+    reg = base_registry(tmp_path)
+    result = m.govern(root, reg, state, "publish")
+    assert result["allowed"] is False
+    assert "unknown action is denied by default" in result["reasons"]
+    journal = (state / "journal.jsonl").read_text(encoding="utf-8")
+    assert '"action": "govern"' in journal
+    assert '"decision": "deny"' in journal
+
+
+def test_govern_blocks_protected_paths(env, tmp_path: Path):
+    root, state = env
+    reg = base_registry(tmp_path)
+    data = json.loads(reg.read_text(encoding="utf-8"))
+    data["ai_governance"] = {
+        "default": "deny",
+        "protected_paths": ["secrets"],
+        "actions": {
+            "read": {"allow": True},
+        },
+    }
+    reg.write_text(json.dumps(data), encoding="utf-8")
+    result = m.govern(root, reg, state, "read", paths=["secrets/token.txt"])
+    assert result["allowed"] is False
+    assert "protected path requested: secrets/token.txt" in result["reasons"]
+
+
 # ---------------------------------------------------------------------------
 # git-aware classification (tracked files are controlled by git)
 # ---------------------------------------------------------------------------

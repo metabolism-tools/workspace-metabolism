@@ -5,11 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "workspace-metabolism"
 version = "0.2.3"
-description = "Policy-driven file lifecycle management: classify, audit, clean (recyclable), rollback and purge with a hash-chained audit trail."
+description = "MCP server and CLI for policy-driven file governance in AI workspaces: audit, reversible cleanup, rollback, and verification."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-keywords = ["file-management", "lifecycle", "cleanup", "audit", "cli"]
+keywords = [
+    "ai-agents",
+    "ai-coding",
+    "ai-governance",
+    "audit",
+    "cleanup",
+    "cli",
+    "file-management",
+    "lifecycle",
+    "mcp",
+    "model-context-protocol",
+    "rollback",
+    "workspace-management",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -20,6 +33,12 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: System :: Filesystems",
 ]
+
+[project.urls]
+Homepage = "https://github.com/metabolism-tools/workspace-metabolism"
+Repository = "https://github.com/metabolism-tools/workspace-metabolism"
+Documentation = "https://github.com/metabolism-tools/workspace-metabolism#readme"
+Issues = "https://github.com/metabolism-tools/workspace-metabolism/issues"
 
 [project.scripts]
 wm = "workspace_metabolism.cli:main"

@@ -15,6 +15,7 @@ from .core import (
     default_state_dir,
     doctor,
     explain,
+    govern,
     health_score,
     init_policy,
     parse_window,
@@ -125,6 +126,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_doctor = sub.add_parser("doctor", help="check workspace readiness without changing files")
     p_doctor.add_argument("--json", action="store_true", help="print the check as JSON")
 
+    p_govern = sub.add_parser("govern", help="check whether an AI action is allowed by policy")
+    p_govern.add_argument("action", help="read, write, execute, delete or network")
+    p_govern.add_argument("--path", action="append", default=[], help="path involved in the action; repeatable")
+    p_govern.add_argument("--preview", action="store_true", help="confirm that a dry-run or preview was completed")
+    p_govern.add_argument("--approve-by", help="human approver identity")
+    p_govern.add_argument("--json", action="store_true", help="print the decision as JSON")
+
     sub.add_parser("mcp", help="run the MCP stdio server so agents can run micro-metabolism")
 
     return parser
@@ -189,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
                 print("WARNING: state directory is on a memory-backed filesystem")
         return 0 if result["root_writable"] and result["state_dir_writable"] and result["registry_valid"] and not result["lock_busy"] else 1
 
-    if args.command in ("audit", "clean", "status", "explain", "health") and registry_path is None:
+    if args.command in ("audit", "clean", "status", "explain", "health", "govern") and registry_path is None:
         raise SystemExit(
             "no policy file found (metabolism.json / .wm.json); "
             "run `wm init` first or pass --registry"
@@ -318,6 +326,24 @@ def main(argv: list[str] | None = None) -> int:
                   f"   disk alert: {flags['disk_alert']}   journal chain: {'OK' if flags['journal_ok'] else 'BROKEN'}")
             if hs["score"] < 90:
                 print("  next: run `wm audit` for the full report, then `wm clean --grades G4` (dry-run first)")
+    elif args.command == "govern":
+        result = govern(
+            root,
+            registry_path,
+            state_dir,
+            args.action,
+            paths=args.path,
+            preview=args.preview,
+            approver=args.approve_by,
+        )
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            decision = "ALLOW" if result["allowed"] else "DENY"
+            print(f"{decision}: {result['action']}")
+            for reason in result["reasons"]:
+                print(f"  reason: {reason}")
+        return 0 if result["allowed"] else 2
     elif args.command == "mcp":
         from . import mcp_server
 

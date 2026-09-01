@@ -26,6 +26,9 @@ this roadmap tracks both.
   micro-metabolism themselves (clean stays dry-run by default).
 - `examples/micro_metabolism.py` and `examples/ci-audit.yml`: the
   end-of-loop ritual and the CI health gate.
+- `ai_governance` policy section, `wm govern` CLI command and `wm_govern` MCP
+  tool: fail-closed decisions for read/write/execute/delete/network actions,
+  with preview and human-approval requirements recorded in the journal.
 
 ## Next
 

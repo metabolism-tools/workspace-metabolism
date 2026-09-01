@@ -2,6 +2,34 @@
   "version": 1,
   "$schema": "https://raw.githubusercontent.com/metabolism-tools/workspace-metabolism/main/schema/metabolism.schema.json",
   "description": "workspace-metabolism policy for workspace-metabolism",
+  "ai_governance": {
+    "default": "deny",
+    "protected_paths": [
+      ".git",
+      ".venv"
+    ],
+    "actions": {
+      "read": {
+        "allow": true
+      },
+      "write": {
+        "allow": true,
+        "requires_preview": true
+      },
+      "execute": {
+        "allow": true,
+        "requires_approval": true
+      },
+      "delete": {
+        "allow": false,
+        "requires_approval": true
+      },
+      "network": {
+        "allow": false,
+        "requires_approval": true
+      }
+    }
+  },
   "defaults": {
     "recycle_retention_days": 30,
     "max_item_mb": 2560,

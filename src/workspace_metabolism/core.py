@@ -27,6 +27,7 @@ from typing import Iterator, Optional
 
 GRADES = {"G1", "G2", "G3", "G4"}
 ACTIONS = {"never", "auto", "approve"}
+AI_ACTIONS = {"read", "write", "execute", "delete", "network"}
 TEXT_EXTS = {
     ".py", ".md", ".sh", ".ps1", ".json", ".toml", ".yaml", ".yml",
     ".txt", ".html", ".js",
@@ -128,6 +129,24 @@ def load_registry(registry_path: Path) -> dict:
                 f"refusing G4 auto-clean for sensitive path: {path} "
                 "(secrets/keys/credentials must never be auto-cleaned; use G1/G2/G3)"
             )
+    ai_governance = data.get("ai_governance")
+    if ai_governance is not None:
+        if not isinstance(ai_governance, dict):
+            raise SystemExit("invalid ai_governance: expected an object")
+        default = ai_governance.get("default", "deny")
+        if default not in {"allow", "deny"}:
+            raise SystemExit("invalid ai_governance.default: expected allow or deny")
+        for protected_path in ai_governance.get("protected_paths", []):
+            _validate_policy_path(str(protected_path))
+        actions = ai_governance.get("actions", {})
+        if not isinstance(actions, dict):
+            raise SystemExit("invalid ai_governance.actions: expected an object")
+        for action, rule in actions.items():
+            if action not in AI_ACTIONS or not isinstance(rule, dict):
+                raise SystemExit(f"invalid ai_governance action: {action}")
+            for field in ("allow", "requires_preview", "requires_approval"):
+                if field in rule and not isinstance(rule[field], bool):
+                    raise SystemExit(f"invalid ai_governance.{action}.{field}: expected boolean")
     return data
 
 
@@ -196,6 +215,16 @@ def init_policy(root: Path, path: Path, force: bool = False) -> Path:
         "version": 1,
         "$schema": SCHEMA_URL,
         "description": f"workspace-metabolism policy for {root.name}",
+        "ai_governance": {
+            "default": "deny",
+            "actions": {
+                "read": {"allow": True},
+                "write": {"allow": True, "requires_preview": True},
+                "execute": {"allow": True, "requires_approval": True},
+                "delete": {"allow": False, "requires_approval": True},
+                "network": {"allow": False, "requires_approval": True},
+            },
+        },
         "defaults": {
             "recycle_retention_days": 30,
             "max_item_mb": 2560,
@@ -208,6 +237,84 @@ def init_policy(root: Path, path: Path, force: bool = False) -> Path:
     }
     path.write_text(json.dumps(policy, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def govern(
+    root: Path,
+    registry_path: Path,
+    state_dir: Path,
+    action: str,
+    paths: list[str] | None = None,
+    preview: bool = False,
+    approver: str | None = None,
+    operator: str = "agent",
+) -> dict:
+    """Evaluate an AI action against the policy and record the decision.
+
+    This is intentionally a decision point, not an execution engine. Callers
+    must still perform the actual work through their own controlled tool.
+    """
+    registry = load_registry(registry_path)
+    action = str(action).strip().lower()
+    requested_paths = []
+    for raw_path in (paths or []):
+        path = str(raw_path).replace("\\", "/").strip()
+        if path:
+            _validate_policy_path(path)
+            requested_paths.append(path)
+    governance = registry.get("ai_governance") or {}
+    default = str(governance.get("default", "deny")).lower()
+    rule = (governance.get("actions") or {}).get(action)
+    reasons: list[str] = []
+    if action not in AI_ACTIONS or not isinstance(rule, dict):
+        allowed = default == "allow"
+        reasons.append("unknown action is denied by default" if not allowed else "allowed by policy default")
+    else:
+        allowed = bool(rule.get("allow", default == "allow"))
+        if not allowed:
+            reasons.append("action is disabled by policy")
+        if rule.get("requires_preview") and not preview:
+            allowed = False
+            reasons.append("a preview is required")
+        if rule.get("requires_approval") and not approver:
+            allowed = False
+            reasons.append("human approval is required")
+
+    protected = [str(p).replace("\\", "/").rstrip("/") for p in governance.get("protected_paths", [])]
+    matched_protected = [
+        path for path in requested_paths
+        if any(path == pattern or path.startswith(pattern.rstrip("/") + "/") for pattern in protected)
+    ]
+    if matched_protected:
+        allowed = False
+        reasons.append(f"protected path requested: {', '.join(matched_protected)}")
+    if allowed and not reasons:
+        reasons.append("allowed by policy")
+
+    result = {
+        "allowed": allowed,
+        "action": action,
+        "paths": requested_paths,
+        "preview": preview,
+        "approver": approver,
+        "reasons": reasons,
+        "policy": str(registry_path),
+        "policy_sha256": sha256_file(registry_path),
+    }
+    with state_operation_lock(state_dir, "govern"):
+        journal_append(
+            state_dir,
+            "govern",
+            operator,
+            registry_sha256=result["policy_sha256"],
+            decision="allow" if allowed else "deny",
+            governed_action=action,
+            paths=requested_paths,
+            preview=preview,
+            approver=approver,
+            reasons=reasons,
+        )
+    return result
 
 
 def _validate_policy_path(path: str) -> None:

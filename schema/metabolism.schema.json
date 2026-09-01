@@ -9,6 +9,24 @@
     "version": { "const": 1 },
     "$schema": { "type": "string" },
     "description": { "type": "string" },
+    "ai_governance": {
+      "type": "object",
+      "properties": {
+        "default": { "enum": ["allow", "deny"] },
+        "protected_paths": { "type": "array", "items": { "type": "string" } },
+        "actions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "allow": { "type": "boolean" },
+              "requires_preview": { "type": "boolean" },
+              "requires_approval": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
     "never_clean": { "type": "array", "items": { "type": "string" } },
     "defaults": {
       "type": "object",

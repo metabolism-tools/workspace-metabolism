@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from . import __version__
-from .core import POLICY_FILENAMES, audit, clean, explain, health_score, init_policy, rollback, verify
+from .core import POLICY_FILENAMES, audit, clean, explain, govern, health_score, init_policy, rollback, verify
 
 PROTOCOL_VERSION = "2024-11-05"
 
@@ -116,6 +116,24 @@ TOOLS = [
         },
     },
     {
+        "name": "wm_govern",
+        "description": (
+            "Check whether an AI action is allowed by the workspace policy without performing it. "
+            "Unknown actions are denied by default. Write actions can require a preview, and sensitive "
+            "actions can require a named human approver. The decision is recorded in the hash-chained journal."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "description": "Action to check: read, write, execute, delete or network."},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "preview": {"type": "boolean", "default": False},
+                "approver": {"type": "string"},
+            },
+            "required": ["action"],
+        },
+    },
+    {
         "name": "wm_init",
         "description": (
             "Scaffold the metabolism.json policy file for this workspace (like git init): scans the "
@@ -208,6 +226,20 @@ def _call_tool(name: str, params: dict, ctx: dict) -> dict:
     if name == "wm_audit":
         report, _ = audit(root, registry_path, state_dir, dupes=bool(params.get("dupes")))
         return _text_result(json.dumps(report, ensure_ascii=False, indent=2))
+    if name == "wm_govern":
+        action = str(params.get("action", "")).strip()
+        if not action:
+            return _error("action is required")
+        result = govern(
+            root,
+            registry_path,
+            state_dir,
+            action,
+            paths=[str(p) for p in (params.get("paths") or [])],
+            preview=bool(params.get("preview", False)),
+            approver=str(params.get("approver", "") or "") or None,
+        )
+        return _text_result(json.dumps(result, ensure_ascii=False, indent=2))
     if name == "wm_health":
         report, _ = audit(root, registry_path, state_dir)
         return _text_result(json.dumps(health_score(report), ensure_ascii=False, indent=2))
