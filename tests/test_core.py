@@ -940,3 +940,50 @@ def test_plan_blocks_candidate_containing_specific_never_child(tmp_path: Path) -
     items = m.plan_items(root, json.loads(reg.read_text(encoding="utf-8")), {"G4"}, tmp_path / "state")
     assert items, "expected the generic dir candidate"
     assert items[0]["reason"] == "contains a path protected by a more specific entry"
+
+
+def test_govern_returns_decision_id_and_journals_it(tmp_path: Path) -> None:
+    root = tmp_path / "ws"
+    root.mkdir()
+    reg = tmp_path / "metabolism.json"
+    reg.write_text(json.dumps({
+        "version": 1,
+        "ai_governance": {
+            "default": "deny",
+            "actions": {"read": {"allow": True}, "write": {"allow": True, "requires_preview": True}},
+        },
+        "entries": [],
+    }), encoding="utf-8")
+    state = tmp_path / "state"
+    decision = m.govern(root, reg, state, "read", paths=["a.txt"])
+    assert decision["allowed"] is True
+    assert decision["decision_id"].startswith("govern-")
+    entries = [json.loads(l) for l in m.journal_path(state).read_text(encoding="utf-8").splitlines() if l.strip()]
+    assert entries[-1]["decision_id"] == decision["decision_id"]
+    assert entries[-1]["decision"] == "allow"
+    assert entries[-1]["registry_sha256"] == m.sha256_file(reg)
+
+    denied = m.govern(root, reg, state, "write", paths=["b.txt"])  # preview required
+    assert denied["allowed"] is False
+    assert denied["decision_id"] != decision["decision_id"]
+
+
+def test_clean_journals_decision_id(tmp_path: Path) -> None:
+    root = tmp_path / "ws"
+    d = root / "logs"
+    d.mkdir(parents=True)
+    (d / "old.log").write_text("x", encoding="utf-8")
+    old = datetime.now().timestamp() - 60 * 86400
+    for f in d.rglob("*"):
+        os.utime(f, (old, old))
+    os.utime(d, (old, old))
+    reg = tmp_path / "metabolism.json"
+    reg.write_text(json.dumps({"version": 1, "entries": [
+        {"path": "logs", "grade": "G4", "cleanup": "auto", "retention_days": 7},
+    ]}), encoding="utf-8")
+    state = tmp_path / "state"
+    decision_id = "govern-20260901-000000-000001"
+    m.clean(root, reg, state, {"G4"}, yes=True, decision_id=decision_id)
+    entries = [json.loads(l) for l in m.journal_path(state).read_text(encoding="utf-8").splitlines() if l.strip()]
+    clean_entry = next(e for e in entries if e["action"] == "clean")
+    assert clean_entry["decision_id"] == decision_id

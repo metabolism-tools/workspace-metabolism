@@ -96,11 +96,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_clean.add_argument("--yes", action="store_true", help="execute instead of dry-run")
     p_clean.add_argument("--approve", action="store_true", help="mark G3 cleanup as approved")
     p_clean.add_argument("--approver", help="approver name/identity (required for G3)")
+    p_clean.add_argument("--decision-id", help="link this run to a wm govern decision_id")
     p_clean.add_argument("--auto", action="store_true", help="mark the run as scheduled")
 
     p_roll = sub.add_parser("rollback", help="restore one cleanup run from the recycle area")
     p_roll.add_argument("run_id")
     p_roll.add_argument("--dry-run", action="store_true")
+    p_roll.add_argument("--decision-id", help="link this run to a wm govern decision_id")
 
     p_purge = sub.add_parser("purge", help="delete expired recycle batches (the only real delete)")
     p_purge.add_argument("--older-than", type=int, default=30, help="age threshold in days (default: 30)")
@@ -152,6 +154,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_slim.add_argument("--keep-column", help="reference column for --keep-recent")
     p_slim.add_argument("--vacuum-min-gb", type=float, help="VACUUM only when reclaim >= this many GB")
     p_slim.add_argument("--yes", action="store_true", help="execute instead of dry-run")
+    p_slim.add_argument("--decision-id", help="link this run to a wm govern decision_id")
+
+    p_gate = sub.add_parser(
+        "gate",
+        help="run an MCP governance proxy: every tool call is checked against the policy first",
+    )
+    p_gate.add_argument(
+        "--target",
+        required=True,
+        help="command that starts the MCP server to wrap, e.g. 'python -m my_server'",
+    )
 
     sub.add_parser("mcp", help="run the MCP stdio server so agents can run micro-metabolism")
 
@@ -269,9 +282,10 @@ def main(argv: list[str] | None = None) -> int:
             approver=args.approver,
             operator=operator,
             window=window,
+            decision_id=args.decision_id,
         )
     elif args.command == "rollback":
-        rollback(root, state_dir, args.run_id, dry=args.dry_run, operator=operator)
+        rollback(root, state_dir, args.run_id, dry=args.dry_run, operator=operator, decision_id=args.decision_id)
     elif args.command == "purge":
         purge(state_dir, older_than_days=args.older_than, yes=args.yes, operator=operator)
     elif args.command == "verify":
@@ -368,6 +382,10 @@ def main(argv: list[str] | None = None) -> int:
         from . import mcp_server
 
         return mcp_server.main(root, state_dir, registry_path)
+    elif args.command == "gate":
+        from .gate import gate_main, target_from_args
+
+        return gate_main(root, state_dir, registry_path, target_from_args(args.target))
     elif args.command == "slim":
         strip = tuple(k.strip() for k in args.strip_keys.split(",") if k.strip()) if args.strip_keys else ()
         report = slim(
@@ -383,6 +401,7 @@ def main(argv: list[str] | None = None) -> int:
             vacuum_min_gb=args.vacuum_min_gb,
             yes=args.yes,
             operator=operator,
+            decision_id=args.decision_id,
         )
         print(json.dumps(report, ensure_ascii=False, indent=2))
         if report["status"] == "ok":

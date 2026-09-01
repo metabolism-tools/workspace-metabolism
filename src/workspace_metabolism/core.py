@@ -292,6 +292,7 @@ def govern(
     if allowed and not reasons:
         reasons.append("allowed by policy")
 
+    decision_id = f"govern-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
     result = {
         "allowed": allowed,
         "action": action,
@@ -299,6 +300,7 @@ def govern(
         "preview": preview,
         "approver": approver,
         "reasons": reasons,
+        "decision_id": decision_id,
         "policy": str(registry_path),
         "policy_sha256": sha256_file(registry_path),
     }
@@ -309,6 +311,7 @@ def govern(
             operator,
             registry_sha256=result["policy_sha256"],
             decision="allow" if allowed else "deny",
+            decision_id=decision_id,
             governed_action=action,
             paths=requested_paths,
             preview=preview,
@@ -1246,6 +1249,7 @@ def clean(
     approver: Optional[str] = None,
     operator: str = "manual",
     window: tuple[int, int] | None = None,
+    decision_id: Optional[str] = None,
 ) -> None:
     root = root.resolve()
     state_dir = state_dir.resolve()
@@ -1328,6 +1332,7 @@ def clean(
             items=moved_ok,
             size=sum(it["size"] for it in todo),
             approver=approver,
+            decision_id=decision_id,
         )
         print(f"done: {moved_ok}/{len(todo)} item(s) moved to recycle. rollback: wm rollback {run_id}")
 
@@ -1380,7 +1385,7 @@ def explain(root: Path, registry_path: Path, state_dir: Path, rel_path: str) -> 
     return info
 
 
-def rollback(root: Path, state_dir: Path, run_id: str, dry: bool = False, operator: str = "manual") -> None:
+def rollback(root: Path, state_dir: Path, run_id: str, dry: bool = False, operator: str = "manual", decision_id: Optional[str] = None) -> None:
     root = root.resolve()
     state_dir = state_dir.resolve()
     with state_operation_lock(state_dir, "rollback"):
@@ -1412,7 +1417,7 @@ def rollback(root: Path, state_dir: Path, run_id: str, dry: bool = False, operat
             ok += 1
             print(f"  [restored] {it['path']}")
         if not dry:
-            journal_append(state_dir, "rollback", operator, run_id=run_id, restored=ok)
+            journal_append(state_dir, "rollback", operator, run_id=run_id, restored=ok, decision_id=decision_id)
         print(f"rollback {'dry-run' if dry else 'completed'}: {ok}/{len(manifest['items'])}")
 
 
@@ -1533,6 +1538,7 @@ def slim(
     vacuum_min_gb: float | None = None,
     yes: bool = False,
     operator: str = "manual",
+    decision_id: Optional[str] = None,
 ) -> dict:
     """Trim heavy JSON fields out of a registered SQLite database in place.
 
@@ -1668,6 +1674,7 @@ def slim(
         registry_sha256=(
             hashlib.sha256(registry_path.read_bytes()).hexdigest() if registry_path else None
         ),
+        decision_id=decision_id,
         **report,
     )
     return {"action": "slim", **report}

@@ -17,6 +17,11 @@
       "properties": {
         "default": { "enum": ["allow", "deny"] },
         "protected_paths": { "type": "array", "items": { "type": "string" } },
+        "tool_patterns": {
+          "type": "object",
+          "description": "Map MCP tool name patterns to AI actions (glob, e.g. \"fs_*\": \"write\"); used by wm gate.",
+          "additionalProperties": { "enum": ["read", "write", "execute", "delete", "network"] }
+        },
         "actions": {
           "type": "object",
           "additionalProperties": {

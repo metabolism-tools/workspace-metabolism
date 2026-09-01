@@ -112,6 +112,10 @@ TOOLS = [
                     "type": "string",
                     "description": "Name of the person or system approving G3 execution; required when grades include G3 and is recorded in the audit journal.",
                 },
+                "decision_id": {
+                    "type": "string",
+                    "description": "Link this run to a prior wm_govern decision_id so the journal shows intent -> decision -> execution. Optional.",
+                },
             },
         },
     },
@@ -259,6 +263,7 @@ def _call_tool(name: str, params: dict, ctx: dict) -> dict:
         execute = bool(params.get("execute", False))
         approve = bool(params.get("approve", False))
         approver = str(params.get("approver", "") or "")
+        decision_id = str(params.get("decision_id", "") or "") or None
         buffer = io.StringIO()
         try:
             with contextlib.redirect_stdout(buffer):
@@ -271,6 +276,7 @@ def _call_tool(name: str, params: dict, ctx: dict) -> dict:
                     approve=approve,
                     approver=approver or None,
                     operator="agent",
+                    decision_id=decision_id,
                 )
         except SystemExit as exc:
             return _error(str(exc))
