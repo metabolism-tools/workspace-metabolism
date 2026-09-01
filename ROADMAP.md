@@ -1,4 +1,4 @@
-# Roadmap
+﻿# Roadmap
 
 Status: proposal / active development. The paradigm is bigger than the tool;
 this roadmap tracks both.
@@ -15,7 +15,14 @@ this roadmap tracks both.
 - Launch: v0.1.2 on PyPI, GitHub release, discussion announcement, and
   paste-ready copy for X, Zhihu and Xiaohongshu.
 
-## In v0.2.x (current sprint)
+## In v0.3.0 (shipped)
+
+- `wm slim`: in-place SQLite trimming for policy-registered databases (strip
+  heavy JSON keys from one blob column, keep the newest N reference values,
+  VACUUM above a reclaim threshold; journaled, dry-run by default). The
+  DB-internal analogue of `clean`.
+
+## In v0.2.x (previous sprints)
 
 - `wm init`: scaffold a `metabolism.json` policy file, like `git init`.
 - Auto-discovery of `metabolism.json` / `.wm.json` (no `--registry` needed).

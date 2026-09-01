@@ -1,12 +1,8 @@
 # workspace-metabolism
 
-One policy file controls the whole life cycle of files in your workspace:
-classify, audit, clean into a recycle area (rollback anytime), purge, and
-verify — every step leaves a hash-chained audit trail. Python 3.11+,
-**zero dependencies**, Windows / Linux / macOS.
-
 MCP server and CLI for governing files left by AI coding agents: policy-driven
-audit, reversible cleanup, rollback, and hash-chained verification.
+audit, reversible cleanup, rollback, and hash-chained verification. Python
+3.11+, **zero dependencies**, Windows / Linux / macOS.
 
 [![PyPI version](https://img.shields.io/pypi/v/workspace-metabolism)](https://pypi.org/project/workspace-metabolism)
 [![Python](https://img.shields.io/pypi/pyversions/workspace-metabolism)](https://pypi.org/project/workspace-metabolism)
@@ -19,30 +15,31 @@ audit, reversible cleanup, rollback, and hash-chained verification.
 
 ![workspace health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmetabolism-tools%2Fworkspace-metabolism%2Fmain%2Fdocs%2Fhealth.json)
 
-Watch the 60-second animated demo: [docs/demo-terminal.html](docs/demo-terminal.html)
+▶️ Watch the 60-second animated demo: [docs/demo-terminal.html](docs/demo-terminal.html)
 
-**Status:** v0.2.3 — a proposal plus reference implementation. Early days: no
+**Status:** v0.3.0 — a proposal plus reference implementation. Early days: no
 external users yet, and the policy schema may shift before v1.0. Early adopters
 are welcome to break it on weird directory structures.
 
 ## 中文快速上手（30 秒）
 
-AI 编程工具（Claude Code / Codex / Aider 等）会在工作区留下大量草稿、缓存和
+AI 编程（Claude Code / Codex / Aider 等）会在工作区留下大量草稿、缓存和
 废弃文件，越堆越多，下一轮 AI 还得在垃圾堆里干活。这个工具用一份策略文件
 管理文件的整个生命周期：**检查（只读）→ 回收（可回滚）→ 验证（防篡改记录）
 → 清理**。
 
 ```bash
 pip install workspace-metabolism        # 安装（零依赖）
-python examples/demo.py                 # 30 秒演示：直接删除 vs 回收后可恢复
+python examples/demo.py                 # 30 秒演示：盲删 vs 回收+回滚
 wm init                                 # 生成策略文件 metabolism.json
-wm audit                                # 只读检查，给文件贴营养标签
-wm clean --grades G4 --yes              # 回收过期项（默认只预览，确认后加 --yes）
-wm rollback <run_id>                    # 删错了？一键恢复原样
+wm audit                                # 只读体检，给文件贴营养标签
+wm clean --grades G4 --yes              # 回收过期项（默认 dry-run，确认后加 --yes）
+wm rollback <run_id>                    # 删错了？一键原样找回
+wm slim --db data/app.db --yes          # 数据库也会膨胀：策略驱动的库内瘦身（v0.3）
 ```
 
-默认只读，不会直接删除文件；每一步都有防篡改记录。Windows / Mac / Linux 都能用。
-项目还在早期阶段（v0.2），策略格式在 v1.0 前可能调整。完整英文说明见下文。
+默认只读、绝不直接删文件；每步操作都有防篡改记录；Windows / Mac / Linux 通用。
+项目处于早期（v0.3），策略格式在 v1.0 前可能调整。完整英文文档见下文。
 
 ## Why this exists
 
@@ -114,17 +111,17 @@ A recorded run (2026-08-16, wm 0.2.0) is in
 (raw log:
 [docs/publish/benchmark-run-20260816.txt](docs/publish/benchmark-run-20260816.txt)).
 
-## Philosophy
+## 🧬 Philosophy
 
 `workspace-metabolism` treats your AI-generated workspace as a living system,
-inspired by biological metabolism: audit -> clean -> verify -> rollback, with
+inspired by biological metabolism: audit → clean → verify → rollback, with
 recyclable cleanup and a hash-chained audit trail. Cleanup is the means;
 metabolism is the frame. The one-liner: **loops keep the agent running;
 metabolism keeps the workspace alive.** We call this framing **Agentic
 Metabolic Engineering**
-which means managing the byproducts of agent-driven software workspaces. Full write-up:
-[docs/philosophy.md](docs/philosophy.md), [the story](docs/narrative.md),
-[competitive analysis](docs/competitive-analysis.md),
+— managing the byproducts of agent-driven software workspaces. Full write-up:
+[docs/philosophy.md](docs/philosophy.md) · [the story](docs/narrative.md) ·
+[competitive analysis](docs/competitive-analysis.md) ·
 [academic anchors](docs/academic-anchors.md).
 
 ## Quick start
@@ -178,6 +175,7 @@ policy file. Advanced users can start from
 | `health` | Workspace health score (0-100), with `--json` and `--badge` output |
 | `doctor` | Read-only readiness check for the workspace, policy, state directory and active locks |
 | `govern <action>` | Check whether an AI action is allowed by policy and record the decision |
+| `slim --db PATH` | Policy-driven in-place trimming of heavy JSON fields in a SQLite database (journaled; dry-run by default) |
 | `mcp` | MCP stdio server so agents can run micro-metabolism themselves |
 
 Global flags:
@@ -198,6 +196,25 @@ and state directory are writable, whether the policy exists and is valid, and
 whether another `wm` operation currently holds the state lock. The lock
 serializes audits, cleanup, rollback and purge so concurrent scheduled or
 agent-triggered runs cannot interleave journal and recycle operations.
+
+### AI governance as code
+
+The optional `ai_governance` section uses the same policy file to check AI
+actions before they happen. Unknown actions are denied by default; write
+actions can require a preview, while execute, delete and network actions can
+require a named approver. `wm govern` only makes and records a decision; it
+does not perform the action for the caller.
+
+```bash
+wm govern write --path src/main.py
+wm govern write --path src/main.py --preview
+wm govern execute --path scripts/release.ps1 --approve-by "name"
+wm govern network --approve-by "name" --json
+```
+
+Every decision includes the policy hash and is written to the same
+hash-chained journal. The approver value is an auditable declaration, not an
+authentication mechanism.
 
 ## Policy file
 
@@ -237,25 +254,6 @@ agent-triggered runs cannot interleave journal and recycle operations.
 The policy format is versioned and validated against
 [schema/metabolism.schema.json](schema/metabolism.schema.json), so editors and
 agents can check your file before the tool does.
-
-### AI governance as code
-
-The optional `ai_governance` section uses the same policy file to check AI
-actions before they happen. Unknown actions are denied by default; write
-actions can require a preview, while execute, delete and network actions can
-require a named approver. `wm govern` only makes and records a decision; it
-does not perform the action for the caller.
-
-```bash
-wm govern write --path src/main.py
-wm govern write --path src/main.py --preview
-wm govern execute --path scripts/release.ps1 --approve-by "name"
-wm govern network --approve-by "name" --json
-```
-
-Every decision includes the policy hash and is written to the same
-hash-chained journal. The approver value is an auditable declaration, not an
-authentication mechanism.
 
 ## Health score
 

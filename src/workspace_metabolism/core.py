@@ -19,6 +19,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from datetime import datetime
@@ -1426,6 +1427,208 @@ def purge(state_dir: Path, older_than_days: int = 30, yes: bool = False, operato
             size=total,
         )
         print(f"purge done; freed {total/1024/1024:.1f} MB")
+
+
+# ---------------------------------------------------------------------------
+# slim — in-place SQLite trimming (v0.3.0)
+# ---------------------------------------------------------------------------
+
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _valid_identifier(name: str) -> bool:
+    return bool(_IDENTIFIER_RE.match(name))
+
+
+def db_slim_policy(registry: dict | None, db_path: Path) -> dict:
+    """Policy for a registered SQLite database (registry entry ``db_slim``).
+
+    The entry matching the database path may carry a ``db_slim`` block::
+
+        {"path": "data/app.db", "grade": "G2", "cleanup": "never",
+         "db_slim": {
+             "table": "sessions",
+             "blob_column": "payload_json",
+             "strip_keys": ["factor_observations"],
+             "keep_recent": {"table": "epochs", "column": "created_at", "n": 3},
+             "vacuum_min_gb": 1.0
+         }}
+
+    ``keep_recent`` keeps rows whose reference value is among the newest N
+    distinct values of the reference column untouched (e.g. the newest N
+    epochs). Everything not specified falls back to safe defaults.
+    """
+    default: dict = {
+        "table": None,
+        "blob_column": None,
+        "strip_keys": [],
+        "keep_recent": None,
+        "vacuum_min_gb": 1.0,
+    }
+    if not registry:
+        return default
+    rel = str(db_path).replace("\\", "/")
+    for entry in registry.get("entries", []):
+        p = entry.get("path", "")
+        if rel.endswith(p) or p in rel:
+            policy = dict(default)
+            policy.update(entry.get("db_slim") or {})
+            return policy
+    return default
+
+
+def slim(
+    db_path: Path,
+    registry_path: Path | None,
+    state_dir: Path,
+    *,
+    table: str | None = None,
+    blob_column: str | None = None,
+    strip_keys: tuple[str, ...] = (),
+    keep_recent: int | None = None,
+    keep_table: str | None = None,
+    keep_column: str | None = None,
+    vacuum_min_gb: float | None = None,
+    yes: bool = False,
+    operator: str = "manual",
+) -> dict:
+    """Trim heavy JSON fields out of a registered SQLite database in place.
+
+    The DB-internal analogue of ``clean``: no rows are deleted and the file
+    itself is never removed — only the JSON blob in one column is rewritten,
+    dropping the policy-listed keys. Rows whose reference value is among the
+    newest ``keep_recent`` distinct values are skipped. When the reclaimed
+    space exceeds ``vacuum_min_gb`` and ``--yes`` is given, ``VACUUM``
+    reclaims the freed pages. Every run lands in the hash-chained journal
+    (action ``slim``). Dry-run by default; identifiers are validated against
+    the database schema (no free-form SQL).
+    """
+    db_path = db_path.resolve()
+    if not db_path.is_file():
+        raise SystemExit(f"database not found: {db_path}")
+
+    registry = load_registry(registry_path) if registry_path else None
+    policy = db_slim_policy(registry, db_path)
+    table = table or policy.get("table")
+    blob_column = blob_column or policy.get("blob_column")
+    if strip_keys:
+        keys = list(strip_keys)
+    else:
+        keys = list(policy.get("strip_keys") or [])
+    keep_n = keep_recent if keep_recent is not None else (
+        (policy.get("keep_recent") or {}).get("n") if policy.get("keep_recent") else None
+    )
+    keep_tbl = keep_table or ((policy.get("keep_recent") or {}).get("table") if policy.get("keep_recent") else None)
+    keep_col = keep_column or ((policy.get("keep_recent") or {}).get("column") if policy.get("keep_recent") else None)
+    vmin = vacuum_min_gb if vacuum_min_gb is not None else (
+        float(policy["vacuum_min_gb"]) if policy.get("vacuum_min_gb") is not None else 1.0
+    )
+
+    if not table or not blob_column:
+        raise SystemExit(
+            "slim needs a table and blob column: set entry.db_slim in the policy "
+            "or pass --table/--blob-column"
+        )
+    if not keys:
+        raise SystemExit("slim needs at least one --strip-keys (or entry.db_slim.strip_keys)")
+    for name in (table, blob_column, keep_tbl or "", keep_col or ""):
+        if name and not _valid_identifier(name):
+            raise SystemExit(f"invalid identifier: {name!r}")
+
+    import sqlite3
+
+    con = sqlite3.connect(str(db_path))
+    try:
+        con.execute("PRAGMA busy_timeout = 30000")
+        cols = {row[1] for row in con.execute(f'PRAGMA table_info("{table}")')}
+        if blob_column not in cols:
+            raise SystemExit(f"column {blob_column!r} not in table {table!r}: {sorted(cols)}")
+        if keep_tbl:
+            kcols = {row[1] for row in con.execute(f'PRAGMA table_info("{keep_tbl}")')}
+            if keep_col not in kcols:
+                raise SystemExit(f"column {keep_col!r} not in keep table {keep_tbl!r}: {sorted(kcols)}")
+            recent_values = {
+                row[0] for row in con.execute(
+                    f'SELECT DISTINCT "{keep_col}" FROM "{keep_tbl}" '
+                    f'ORDER BY "{keep_col}" DESC LIMIT ?',
+                    (int(keep_n),),
+                )
+            }
+        else:
+            recent_values = set()
+
+        size_before = db_path.stat().st_size
+        rows_scanned = 0
+        rows_stripped = 0
+        bytes_before = 0
+        bytes_after = 0
+        cursor = con.execute(
+            f'SELECT rowid, "{blob_column}" FROM "{table}"'
+        )
+        updated: list[tuple] = []
+        while True:
+            batch = cursor.fetchmany(500)
+            if not batch:
+                break
+            for rid, blob in batch:
+                rows_scanned += 1
+                if blob is None:
+                    continue
+                try:
+                    obj = json.loads(blob)
+                except (ValueError, TypeError):
+                    continue
+                if not isinstance(obj, dict):
+                    continue
+                before = len(blob)
+                new_obj = {k: v for k, v in obj.items() if k not in keys}
+                if len(new_obj) != len(obj):
+                    if keep_tbl and str(obj.get(keep_col)) in recent_values:
+                        continue
+                    bytes_before += before
+                    bytes_after += len(json.dumps(new_obj, ensure_ascii=False))
+                    rows_stripped += 1
+                    if yes:
+                        updated.append((json.dumps(new_obj, ensure_ascii=False), rid))
+        if yes and updated:
+            con.executemany(f'UPDATE "{table}" SET "{blob_column}" = ? WHERE rowid = ?', updated)
+            con.commit()
+        reclaimed = max(0, bytes_before - bytes_after)
+        vacuum_done = False
+        if yes and reclaimed / 1e9 >= vmin:
+            con.execute("VACUUM")
+            con.commit()
+            vacuum_done = True
+        size_after = db_path.stat().st_size
+    finally:
+        con.close()
+
+    report = {
+        "status": "ok" if yes else "dry_run",
+        "db": str(db_path),
+        "table": table,
+        "blob_column": blob_column,
+        "strip_keys": keys,
+        "keep_recent": {"table": keep_tbl, "column": keep_col, "n": keep_n} if keep_tbl else None,
+        "rows_scanned": rows_scanned,
+        "rows_stripped": rows_stripped,
+        "size_before_bytes": size_before,
+        "size_after_bytes": size_after,
+        "reclaimed_bytes": reclaimed,
+        "reclaimed_gb": round(reclaimed / 1e9, 3),
+        "vacuum_done": vacuum_done,
+        "vacuum_min_gb": vmin,
+    }
+    journal_append(
+        state_dir,
+        "slim",
+        operator,
+        registry_sha256=(
+            hashlib.sha256(registry_path.read_bytes()).hexdigest() if registry_path else None
+        ),
+        **report,
+    )
+    return {"action": "slim", **report}
 
 
 def doctor(root: Path, registry_path: Path | None, state_dir: Path) -> dict:

@@ -22,6 +22,7 @@ from .core import (
     POLICY_FILENAMES,
     purge,
     rollback,
+    slim,
     status,
     verify,
 )
@@ -40,8 +41,12 @@ def _resolve_registry(root: Path, raw: str | None) -> Path | None:
         return Path(raw).resolve()
     for name in POLICY_FILENAMES:
         candidate = root / name
-        if candidate.exists():
-            return candidate.resolve()
+        try:
+            if candidate.exists():
+                return candidate.resolve()
+        except OSError:
+            # unreadable path (e.g. another user's home): treat as absent
+            continue
     return None
 
 
@@ -132,6 +137,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_govern.add_argument("--preview", action="store_true", help="confirm that a dry-run or preview was completed")
     p_govern.add_argument("--approve-by", help="human approver identity")
     p_govern.add_argument("--json", action="store_true", help="print the decision as JSON")
+
+    p_slim = sub.add_parser(
+        "slim",
+        help="trim heavy JSON fields out of a registered SQLite database in place "
+             "(journaled; dry-run by default)",
+    )
+    p_slim.add_argument("--db", required=True, help="path to the SQLite database")
+    p_slim.add_argument("--table", help="table holding the JSON blob (override entry.db_slim.table)")
+    p_slim.add_argument("--blob-column", help="JSON blob column (override entry.db_slim.blob_column)")
+    p_slim.add_argument("--strip-keys", help="comma-separated JSON keys to strip (override entry.db_slim.strip_keys)")
+    p_slim.add_argument("--keep-recent", type=int, help="keep the newest N distinct reference values untouched")
+    p_slim.add_argument("--keep-table", help="reference table for --keep-recent")
+    p_slim.add_argument("--keep-column", help="reference column for --keep-recent")
+    p_slim.add_argument("--vacuum-min-gb", type=float, help="VACUUM only when reclaim >= this many GB")
+    p_slim.add_argument("--yes", action="store_true", help="execute instead of dry-run")
 
     sub.add_parser("mcp", help="run the MCP stdio server so agents can run micro-metabolism")
 
@@ -348,4 +368,34 @@ def main(argv: list[str] | None = None) -> int:
         from . import mcp_server
 
         return mcp_server.main(root, state_dir, registry_path)
+    elif args.command == "slim":
+        strip = tuple(k.strip() for k in args.strip_keys.split(",") if k.strip()) if args.strip_keys else ()
+        report = slim(
+            Path(args.db),
+            registry_path,
+            state_dir,
+            table=args.table,
+            blob_column=args.blob_column,
+            strip_keys=strip,
+            keep_recent=args.keep_recent,
+            keep_table=args.keep_table,
+            keep_column=args.keep_column,
+            vacuum_min_gb=args.vacuum_min_gb,
+            yes=args.yes,
+            operator=operator,
+        )
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        if report["status"] == "ok":
+            print(
+                f"slim done: {report['rows_stripped']} row(s) stripped, "
+                f"{report['size_before_bytes']} -> {report['size_after_bytes']} bytes "
+                f"(reclaimed {report['reclaimed_gb']} GB)"
+                + (", VACUUM applied" if report["vacuum_done"] else "")
+                + "; journaled (action=slim)"
+            )
+        else:
+            print(
+                f"dry-run: {report['rows_stripped']} row(s) would be stripped, "
+                f"{report['reclaimed_gb']} GB reclaimable; re-run with --yes to execute"
+            )
     return 0
