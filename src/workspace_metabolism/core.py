@@ -386,6 +386,29 @@ def entry_covers(entry: dict, rel: Path) -> bool:
     return rel_s == pattern or rel_s.startswith(pattern.rstrip("/") + "/")
 
 
+def entry_specificity(entry: dict) -> int:
+    """Number of path segments in a plain entry; glob entries sort as their literal depth."""
+    pattern = str(entry.get("path", "")).strip("/").replace("\\", "/")
+    return len(PurePosixPath(pattern).parts)
+
+
+def most_specific_entry(registry: dict, rel: Path) -> Optional[dict]:
+    """The covering entry with the longest path; generic entries never shadow specific ones.
+
+    Mirrors ``db_slim_policy``'s longest-match-wins rule so every policy lookup
+    (explain, planning) agrees on which entry governs a path.
+    """
+    best: Optional[dict] = None
+    best_len = -1
+    for e in registry.get("entries", []):
+        if not entry_covers(e, rel):
+            continue
+        n = entry_specificity(e)
+        if n > best_len:
+            best, best_len = e, n
+    return best
+
+
 def covered_by_any(registry: dict, rel: Path) -> bool:
     return any(entry_covers(e, rel) for e in registry["entries"])
 
@@ -1187,6 +1210,14 @@ def plan_items(
         reason = ""
         if c["path"] in never_clean or covered_by_any(never_registry, rel):
             reason = "protected"
+        elif any(
+            e.get("cleanup") == "never"
+            and "*" not in str(e.get("path", ""))
+            and entry_specificity(e) > entry_specificity({"path": c["path"]})
+            and entry_covers({"path": c["path"]}, Path(str(e["path"]).strip("/")))
+            for e in registry["entries"]
+        ):
+            reason = "contains a path protected by a more specific entry"
         elif c["size"] > max_mb * 1024 * 1024:
             reason = f"exceeds single-item limit ({max_mb} MB)"
         elif c.get("protected") and window_active:
@@ -1309,10 +1340,9 @@ def explain(root: Path, registry_path: Path, state_dir: Path, rel_path: str) -> 
     if not target.exists():
         raise SystemExit(f"path not found: {rel}")
     rel_s = rel.as_posix()
-    covered = [e for e in registry["entries"] if entry_covers(e, rel)]
-    if not covered:
+    entry = most_specific_entry(registry, rel)
+    if entry is None:
         return {"path": rel_s, "covered": False, "managed": False}
-    entry = covered[0]
     info = {
         "path": rel_s,
         "covered": True,
