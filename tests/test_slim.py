@@ -143,3 +143,65 @@ def test_slim_requires_table_and_keys(tmp_path: Path) -> None:
     _make_db(db)
     with pytest.raises(SystemExit):
         slim(db, None, tmp_path / "state", yes=False)
+
+
+def test_slim_db_missing_raises(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit, match="database not found"):
+        slim(tmp_path / "nope.db", None, tmp_path / "state", yes=False)
+
+
+def test_slim_unknown_blob_column_raises(tmp_path: Path) -> None:
+    db = tmp_path / "app.db"
+    _make_db(db)
+    reg = tmp_path / "metabolism.json"
+    reg.write_text(json.dumps({"version": 1, "entries": [{
+        "path": "app.db", "grade": "G2", "cleanup": "never",
+        "db_slim": {"table": "work_units", "blob_column": "no_such_col", "strip_keys": ["x"]},
+    }]}), encoding="utf-8")
+    with pytest.raises(SystemExit, match="not in table"):
+        slim(db, reg, tmp_path / "state", yes=False)
+
+
+def test_slim_unknown_keep_column_raises(tmp_path: Path) -> None:
+    db = tmp_path / "app.db"
+    _make_db(db)
+    reg = tmp_path / "metabolism.json"
+    reg.write_text(json.dumps({"version": 1, "entries": [{
+        "path": "app.db", "grade": "G2", "cleanup": "never",
+        "db_slim": {"table": "work_units", "blob_column": "payload_json",
+                    "strip_keys": ["factor_observations"],
+                    "keep_recent": {"table": "epochs", "column": "no_such", "n": 2}},
+    }]}), encoding="utf-8")
+    with pytest.raises(SystemExit, match="not in keep table"):
+        slim(db, reg, tmp_path / "state", yes=False)
+
+
+def test_slim_invalid_identifier_raises(tmp_path: Path) -> None:
+    db = tmp_path / "app.db"
+    _make_db(db)
+    with pytest.raises(SystemExit, match="invalid identifier"):
+        slim(db, None, tmp_path / "state", yes=False, table="bad;name", blob_column="payload_json", strip_keys=("x",))
+
+
+def test_slim_skips_corrupt_and_missing_key_blobs(tmp_path: Path) -> None:
+    """Invalid JSON / non-dict blobs and blobs without the strip key must not crash or change."""
+    db = tmp_path / "app.db"
+    con = sqlite3.connect(str(db))
+    con.execute("create table t (payload_json text)")
+    con.execute("insert into t values (?)", ("not json at all",))
+    con.execute("insert into t values (?)", (json.dumps(["list", "not dict"]),))
+    con.execute("insert into t values (?)", (json.dumps({"a": 1}),))  # no strip key
+    con.commit()
+    con.close()
+    reg = tmp_path / "metabolism.json"
+    reg.write_text(json.dumps({"version": 1, "entries": [{
+        "path": "app.db", "grade": "G2", "cleanup": "never",
+        "db_slim": {"table": "t", "blob_column": "payload_json", "strip_keys": ["factor_observations"]},
+    }]}), encoding="utf-8")
+    report = slim(db, reg, tmp_path / "state", yes=True)
+    assert report["status"] == "ok"
+    assert report["rows_scanned"] == 3
+    assert report["rows_stripped"] == 0  # nothing had the key; invalid blobs skipped
+    con = sqlite3.connect(str(db))
+    assert con.execute("select count(*) from t").fetchone()[0] == 3
+    con.close()
