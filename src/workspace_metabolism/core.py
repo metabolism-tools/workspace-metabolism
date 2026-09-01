@@ -1500,6 +1500,8 @@ def db_slim_policy(registry: dict | None, db_path: Path) -> dict:
     if not registry:
         return default
     rel_parts = tuple(PurePosixPath(str(db_path).replace("\\", "/")).parts)
+    # 条目可以是库文件本身（data/app.db），也可以是库所在目录（data/research/work_ledger）
+    bases = [rel_parts, rel_parts[:-1]]
     best: tuple[int, dict] = (-1, default)
     for entry in registry.get("entries", []):
         p = str(entry.get("path", "")).strip("/").replace("\\", "/")
@@ -1508,10 +1510,12 @@ def db_slim_policy(registry: dict | None, db_path: Path) -> dict:
         p_parts = tuple(PurePosixPath(p).parts)
         if len(p_parts) > len(rel_parts):
             continue
-        if rel_parts[-len(p_parts):] == p_parts and len(p_parts) > best[0]:
-            policy = dict(default)
-            policy.update(entry.get("db_slim") or {})
-            best = (len(p_parts), policy)
+        for base in bases:
+            if len(p_parts) <= len(base) and base[-len(p_parts):] == p_parts and len(p_parts) > best[0]:
+                policy = dict(default)
+                policy.update(entry.get("db_slim") or {})
+                best = (len(p_parts), policy)
+                break
     return best[1]
 
 
