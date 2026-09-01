@@ -36,10 +36,11 @@ wm init                                 # 生成策略文件 metabolism.json
 wm audit                                # 只读体检，给文件贴营养标签
 wm clean --grades G4 --yes              # 回收过期项（默认 dry-run，确认后加 --yes）
 wm rollback <run_id>                    # 删错了？一键原样找回
+wm slim --db data/app.db --yes          # 数据库也会膨胀：策略驱动的库内瘦身（v0.3）
 ```
 
 默认只读、绝不直接删文件；每步操作都有防篡改记录；Windows / Mac / Linux 通用。
-项目处于早期（v0.2），策略格式在 v1.0 前可能调整。完整英文文档见下文。
+项目处于早期（v0.3），策略格式在 v1.0 前可能调整。完整英文文档见下文。
 
 ## Why this exists
 
