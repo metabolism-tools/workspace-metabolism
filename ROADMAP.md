@@ -1,4 +1,4 @@
-﻿# Roadmap
+# Roadmap
 
 Status: proposal / active development. The paradigm is bigger than the tool;
 this roadmap tracks both.
