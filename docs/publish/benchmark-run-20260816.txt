@@ -1,4 +1,4 @@
-﻿{
+{
   "loops": 30,
   "files_per_loop": 8,
   "retention_days": 7,
