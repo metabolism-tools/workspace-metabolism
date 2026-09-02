@@ -15,12 +15,26 @@ this roadmap tracks both.
 - Launch: v0.1.2 on PyPI, GitHub release, discussion announcement, and
   paste-ready copy for X, Zhihu and Xiaohongshu.
 
+## In v0.4.0 (shipped)
+
+- `wm gate`: MCP governance proxy — wraps any MCP stdio server; every
+  `tools/call` is checked against `ai_governance` before forwarding, denied
+  calls never reach the target, all decisions land in the journal. Tool
+  names map to actions via `tool_patterns`; calls with `"preview": true`
+  satisfy `requires_preview`. Documented as governance/audit, not a sandbox.
+- `decision_id` execution chain: `govern` returns a `decision_id`; `clean` /
+  `rollback` / `slim` accept `--decision-id`, so the journal shows the full
+  intent -> decision -> execution chain with policy hashes at every step.
+
 ## In v0.3.0 (shipped)
 
 - `wm slim`: in-place SQLite trimming for policy-registered databases (strip
   heavy JSON keys from one blob column, keep the newest N reference values,
   VACUUM above a reclaim threshold; journaled, dry-run by default). The
   DB-internal analogue of `clean`.
+- `ai_governance` policy section, `wm govern` CLI command and `wm_govern` MCP
+  tool: fail-closed decisions for read/write/execute/delete/network actions,
+  with preview and human-approval requirements recorded in the journal.
 
 ## In v0.3.1 (shipped)
 
@@ -55,13 +69,13 @@ this roadmap tracks both.
 - **Agent framework integrations**: ready-made session-end hooks for Claude
   Code and Codex; an MCP client guide; DeepSeek Harness via
   `@deepseek-ai/dsh-mcp-client` ([docs/dsh-integration.md](docs/dsh-integration.md)).
-- **Self-evolution accountability (v0.3 direction)**: the hash-chained journal
-  and `rollback` are designed as the verifiable audit layer for agents that
-  modify their own runtime (`cordis_define`-style self-evolution). Proposed
-  steps: automatic `turn/end` auditing (native DSH plugin), workspace health
-  score as a cross-session fitness signal, and journal-backed attribution of
-  model-made changes. Not yet wired into any loop — see the DSH discussion
-  thread for the open design question.
+- **Self-evolution accountability (v0.4+ direction)**: the `decision_id`
+  chain (shipped in v0.4.0) gives journal-backed attribution of model-made
+  changes. Remaining steps: automatic `turn/end` auditing (native DSH
+  plugin), workspace health score as a cross-session fitness signal, and
+  gate enforcement inside agent frameworks (not just the stdio proxy).
+  Not yet wired into any loop — see the DSH discussion thread for the open
+  design question.
 - **Benchmark v2**: multi-profile workspaces (agent-heavy repo, data-science
   workspace, web project), 100-loop runs, audit-time and context-size curves.
 - **Health badge hosting**: a hosted endpoint so the badge updates
