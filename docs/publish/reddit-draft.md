@@ -32,7 +32,7 @@ wm mcp   # talk to it from Claude Code / Cursor / any MCP client
 Repo: https://github.com/metabolism-tools/workspace-metabolism
 (MIT, Python 3.11+, zero dependencies, Win/macOS/Linux)
 
-It's early-stage (v0.2) — the policy model (G1–G4, approval gates, protected
+It's early-stage (v0.4) — the policy model (G1–G4, approval gates, protected
 windows, hash-chained journal) is the thing I most want feedback on. What do
 you use to keep agent workspaces tidy? Does your agent framework already do
 this and I reinvented it? 😅
