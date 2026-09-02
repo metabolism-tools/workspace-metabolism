@@ -21,6 +21,10 @@ audit, reversible cleanup, rollback, and hash-chained verification. Python
 external users yet, and the policy schema may shift before v1.0. Early adopters
 are welcome to break it on weird directory structures.
 
+Glama (MCP server directory) rates this server **A in all four checklist
+categories** — Server Coherence, Tool Definition Quality, Maintenance, License
+([score page](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism/score)).
+
 This repo has two linked ideas:
 
 - **Agentic Metabolic Engineering** is the method: how to think about workspace lifecycle.
@@ -45,7 +49,7 @@ wm slim --db data/app.db --yes          # 数据库也会膨胀：策略驱动�
 ```
 
 默认只读、绝不直接删文件；每步操作都有防篡改记录；Windows / Mac / Linux 通用。
-项目处于早期（v0.3），策略格式在 v1.0 前可能调整。完整英文文档见下文。
+项目处于早期（v0.4），策略格式在 v1.0 前可能调整。完整英文文档见下文。
 
 ## Why this exists
 
@@ -387,17 +391,17 @@ CI runs the full test suite on Ubuntu, Windows and macOS with Python 3.11 and
 
 ## Project family
 
-Sister organization: [Foolproof Labs](https://github.com/foolproof-labs) — a
+Sister organization: [Holdout](https://github.com/holdout-labs) — a
 toolchain against self-deception in quantitative research:
 
-- [`falsification-ledger`](https://github.com/foolproof-labs/falsification-ledger) — pre-registration and falsification ledger
-- [`factor-qc`](https://github.com/foolproof-labs/factor-qc) — fail-closed backtest quality gate
-- [`pit-adjuster`](https://github.com/foolproof-labs/pit-adjuster) — PIT back-adjustment with drift detection
-- [`lookahead-free`](https://github.com/foolproof-labs/lookahead-free) — verifiable look-ahead-freedom checks
-- [`ashare-data-immunity`](https://github.com/foolproof-labs/ashare-data-immunity) — data immunity for A-share daily bars
-- [`lesson-book`](https://github.com/foolproof-labs/lesson-book) — tuition memory for traders
+- [`falsification-ledger`](https://github.com/holdout-labs/falsification-ledger) — pre-registration and falsification ledger
+- [`factor-qc`](https://github.com/holdout-labs/factor-qc) — fail-closed backtest quality gate
+- [`pit-adjuster`](https://github.com/holdout-labs/pit-adjuster) — PIT back-adjustment with drift detection
+- [`lookahead-free`](https://github.com/holdout-labs/lookahead-free) — verifiable look-ahead-freedom checks
+- [`ashare-data-immunity`](https://github.com/holdout-labs/ashare-data-immunity) — data immunity for A-share daily bars
+- [`lesson-book`](https://github.com/holdout-labs/lesson-book) — tuition memory for traders
 
-If `workspace-metabolism` keeps the *workspace* alive, Foolproof Labs keeps
+If `workspace-metabolism` keeps the *workspace* alive, Holdout keeps
 the *research* honest.
 
 ## License
