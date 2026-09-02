@@ -55,7 +55,10 @@ def build_parser() -> argparse.ArgumentParser:
         prog="wm",
         description=(
             "Policy-driven file lifecycle management: classify, audit, "
-            "clean (recyclable), rollback, purge with a hash-chained audit trail."
+            "clean (recyclable), rollback, purge with a hash-chained audit trail. "
+            "NOTE: global options (--root, --state-dir, --registry, "
+            "--protected-window) must come BEFORE the subcommand, e.g. "
+            "`wm --registry policy.json slim --db ledger.db --yes`."
         ),
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")

@@ -22,6 +22,22 @@ this roadmap tracks both.
   VACUUM above a reclaim threshold; journaled, dry-run by default). The
   DB-internal analogue of `clean`.
 
+## In v0.3.1 (shipped)
+
+- Three policy-matching fixes found by real usage (the case study's
+  dogfooding round): generic entries no longer shadow specific entries
+  (longest match wins), directory-form entries match databases inside them
+  (file + parent-path dual-base suffix matching), and most-specific-entry
+  resolution in `explain`/`clean` planning. Regression tests for the real
+  deployment shape.
+
+## In v0.4.0 (shipped)
+
+- `wm govern` CLI command and `wm_govern` MCP tool: fail-closed decisions for
+  read/write/execute/delete/network actions, with preview and
+  human-approval requirements recorded in the journal
+  (`ai_governance` policy section).
+
 ## In v0.2.x (previous sprints)
 
 - `wm init`: scaffold a `metabolism.json` policy file, like `git init`.
@@ -33,9 +49,6 @@ this roadmap tracks both.
   micro-metabolism themselves (clean stays dry-run by default).
 - `examples/micro_metabolism.py` and `examples/ci-audit.yml`: the
   end-of-loop ritual and the CI health gate.
-- `ai_governance` policy section, `wm govern` CLI command and `wm_govern` MCP
-  tool: fail-closed decisions for read/write/execute/delete/network actions,
-  with preview and human-approval requirements recorded in the journal.
 
 ## Next
 
