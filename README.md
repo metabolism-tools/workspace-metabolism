@@ -118,9 +118,12 @@ A recorded run (2026-08-16, wm 0.2.0) is in
 produced the most honest review the tool has had. Read
 [docs/case-studies/research-engine-db-rot.md](docs/case-studies/research-engine-db-rot.md):
 three failure modes (dead work units, database rot, silently-dead jobs), the
-fixes, and what we found when we used `wm slim` to verify them — including a
-policy that was stripping the wrong field and two path-matching bugs that only
-real usage exposed.
+fixes, and what we found when we used `wm slim` to verify them — a policy
+stripping the wrong field, two path-matching bugs, a CLI flag-order pitfall
+that failed the first scheduled run, and the first successful run reclaiming
+**10.15 GB** (21.7 GB → 11.3 GB) before uncovering a third real problem: the
+dead-position exclusion rule forgot itself once "clean" epochs diluted its
+learning window. Real usage is the final test.
 
 ## 🧬 Philosophy
 
