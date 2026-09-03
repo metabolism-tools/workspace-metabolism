@@ -987,3 +987,77 @@ def test_clean_journals_decision_id(tmp_path: Path) -> None:
     entries = [json.loads(l) for l in m.journal_path(state).read_text(encoding="utf-8").splitlines() if l.strip()]
     clean_entry = next(e for e in entries if e["action"] == "clean")
     assert clean_entry["decision_id"] == decision_id
+
+
+def test_scan_residue_finds_ungoverned_byproducts(tmp_path: Path) -> None:
+    root = tmp_path / "ws"
+    (root / ".pytest_cache").mkdir(parents=True)
+    (root / ".pytest_cache" / "v").write_text("x", encoding="utf-8")
+    (root / "sub" / "__pycache__").mkdir(parents=True)
+    (root / "sub" / "__pycache__" / "m.pyc").write_text("x", encoding="utf-8")
+    (root / "sub" / "run.log").write_text("x", encoding="utf-8")
+    result = m.scan_residue(root, {"version": 1, "entries": []})
+    paths = {h["path"] for h in result["hits"]}
+    assert ".pytest_cache" in paths
+    assert "sub/__pycache__" in paths
+    assert "sub/run.log" in paths
+    suggested = {s["path"] for s in result["suggestions"]}
+    assert "**/.pytest_cache" in suggested
+    assert "**/__pycache__" in suggested
+    assert "**/*.log" in suggested
+    # the *.log suggestion is conservative (G3 approve)
+    log_suggestion = next(s for s in result["suggestions"] if s["path"] == "**/*.log")
+    assert log_suggestion["grade"] == "G3"
+
+
+def test_scan_residue_skips_covered_and_empty(tmp_path: Path) -> None:
+    root = tmp_path / "ws"
+    (root / ".pytest_cache").mkdir(parents=True)
+    (root / ".pytest_cache" / "v").write_text("x", encoding="utf-8")
+    (root / ".vite").mkdir(parents=True)  # empty -> skipped
+    registry = {"version": 1, "entries": [
+        {"path": ".pytest_cache", "grade": "G4", "cleanup": "auto", "retention_days": 30},
+    ]}
+    result = m.scan_residue(root, registry)
+    paths = {h["path"] for h in result["hits"]}
+    assert ".pytest_cache" not in paths  # already governed
+    assert ".vite" not in paths  # empty dir, nothing to reclaim
+
+
+def test_scan_residue_skips_git(tmp_path: Path) -> None:
+    root = tmp_path / "ws"
+    (root / ".git" / "__pycache__").mkdir(parents=True)
+    (root / ".git" / "__pycache__" / "x.pyc").write_text("x", encoding="utf-8")
+    result = m.scan_residue(root, None)
+    assert result["hits"] == []
+
+
+def test_append_policy_entries_validates_and_dedupes(tmp_path: Path) -> None:
+    reg = tmp_path / "metabolism.json"
+    reg.write_text(json.dumps({"version": 1, "entries": []}), encoding="utf-8")
+    entries = [
+        {"path": "**/.pytest_cache", "grade": "G4", "cleanup": "auto",
+         "retention_days": 30, "intent": "pytest cache"},
+        {"path": "**/*.log", "grade": "G3", "cleanup": "approve",
+         "retention_days": 60, "intent": "log file"},
+    ]
+    added = m.append_policy_entries(reg, entries)
+    assert added == ["**/.pytest_cache", "**/*.log"]
+    # duplicates skipped on second call
+    added2 = m.append_policy_entries(reg, entries)
+    assert added2 == []
+    data = json.loads(reg.read_text(encoding="utf-8"))
+    assert len(data["entries"]) == 2
+    # merged file still passes the strict validator
+    m.load_registry(reg)
+
+
+def test_append_policy_entries_rejects_invalid(tmp_path: Path) -> None:
+    reg = tmp_path / "metabolism.json"
+    reg.write_text(json.dumps({"version": 1, "entries": []}), encoding="utf-8")
+    bad = [{"path": "../escape", "grade": "G4", "cleanup": "auto", "retention_days": 30}]
+    with pytest.raises(SystemExit):
+        m.append_policy_entries(reg, bad)
+    # nothing was written
+    data = json.loads(reg.read_text(encoding="utf-8"))
+    assert data["entries"] == []

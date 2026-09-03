@@ -10,6 +10,7 @@ from pathlib import Path
 
 from . import __version__
 from .core import (
+    append_policy_entries,
     audit,
     clean,
     default_state_dir,
@@ -18,10 +19,12 @@ from .core import (
     govern,
     health_score,
     init_policy,
+    load_registry,
     parse_window,
     POLICY_FILENAMES,
     purge,
     rollback,
+    scan_residue,
     slim,
     status,
     verify,
@@ -135,6 +138,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_doctor = sub.add_parser("doctor", help="check workspace readiness without changing files")
     p_doctor.add_argument("--json", action="store_true", help="print the check as JSON")
+    p_doctor.add_argument(
+        "--residue",
+        action="store_true",
+        help="also scan for common agent byproducts (caches, traces) the policy does not govern yet",
+    )
+    p_doctor.add_argument(
+        "--apply-policy",
+        action="store_true",
+        help="with --residue: append the suggested policy entries (creates the policy file if missing)",
+    )
 
     p_govern = sub.add_parser("govern", help="check whether an AI action is allowed by policy")
     p_govern.add_argument("action", help="read, write, execute, delete or network")
@@ -203,8 +216,30 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "doctor":
         result = doctor(root, registry_path, state_dir)
+        residue = None
+        if args.residue:
+            registry_dict = None
+            if registry_path is not None:
+                try:
+                    registry_dict = load_registry(registry_path)
+                except SystemExit:
+                    registry_dict = None
+            residue = scan_residue(root, registry_dict)
+            if args.apply_policy:
+                if registry_path is None:
+                    init_policy(root, root / POLICY_FILENAMES[0])
+                    registry_path = root / POLICY_FILENAMES[0]
+                    result["registry_present"] = True
+                    result["registry_valid"] = True
+                    result["missing_registry"] = False
+                residue["policy_added"] = append_policy_entries(
+                    registry_path, residue.get("suggestions", [])
+                )
         if args.json:
-            print(json.dumps(result, ensure_ascii=False, indent=2))
+            out = dict(result)
+            if residue is not None:
+                out["residue"] = residue
+            print(json.dumps(out, ensure_ascii=False, indent=2))
         else:
             checks = [
                 ("workspace writable", result["root_writable"]),
@@ -231,6 +266,37 @@ def main(argv: list[str] | None = None) -> int:
                 print("WARNING: workspace is on a memory-backed filesystem")
             if result["state_on_memory"]:
                 print("WARNING: state directory is on a memory-backed filesystem")
+            if residue is not None:
+                hits = residue.get("hits", [])
+                total_bytes = sum(h.get("size_bytes", 0) for h in hits)
+                print(
+                    f"\nRESIDUE: {len(hits)} byproduct(s) not governed by the policy "
+                    f"({total_bytes / 1024 / 1024:.1f} MB)"
+                )
+                for h in hits[:20]:
+                    extra = "" if not h.get("size_partial") else " (size partial)"
+                    print(
+                        f"  - {h['path']} ({h['files']} file(s), "
+                        f"{h['size_bytes'] / 1024 / 1024:.1f} MB){extra} "
+                        f"-> suggest {h['suggested_entry']['path']} "
+                        f"{h['suggested_entry']['grade']}"
+                    )
+                if len(hits) > 20:
+                    print(f"  ... and {len(hits) - 20} more")
+                for w in residue.get("warnings", []):
+                    print(f"WARNING: {w}")
+                if args.apply_policy:
+                    added = residue.get("policy_added", [])
+                    if added:
+                        print(f"ADDED to policy: {', '.join(added)}")
+                        print("NEXT: commit the policy change; run `wm audit` to see grades")
+                    else:
+                        print("POLICY: nothing to add (suggestions already present or nothing found)")
+                else:
+                    print(
+                        "NEXT: review above, then run `wm doctor --residue --apply-policy` "
+                        "to adopt the suggestions as policy entries"
+                    )
         return 0 if result["root_writable"] and result["state_dir_writable"] and result["registry_valid"] and not result["lock_busy"] else 1
 
     if args.command in ("audit", "clean", "status", "explain", "health", "govern") and registry_path is None:
