@@ -20,13 +20,14 @@
 ## A. 收尾层（多数只需一个动作/发布）
 | # | 事项 | 负责人 | 备注 |
 |---|---|---|---|
-| A1 | **wm v0.5.0 发布**（doctor 引导主打；pyproject+__init__ 同步 0.5.0 → 构建 → PyPI → GitHub release） | 我 | 发版前把 README 状态行/B3 一并提交 |
-| A2 | **Show HN + Reddit 发布**（草稿更新为 v0.5 doctor 体验） | 我写/你发 | A1 之后 |
-| A3 | **Glama Sync**：wm（8 工具重评）+ gov（TDQS 新分同步） | 你（浏览器） | 两仓库 Repository 页各点一次 |
+| A1 | **wm v0.5.0 发布**（doctor 引导主打；pyproject+__init__ 同步 0.5.0 → 构建 → PyPI → GitHub release） | 我 | 同步更新：ROADMAP 加 v0.5.0 shipped；product-plan 勾选 #2；release-notes-v0.5.0.md |
+| A2 | **Show HN + Reddit 发布**（草稿更新为 v0.5 doctor 体验） | 我写/你发 | 可选：中文平台（知乎/小红书/X）文案同步 |
+| A3 | **Glama Sync**：wm（8 工具重评）+ gov（TDQS 新分同步）；**验证 gov "quality B" 缓存归位**（92 分应为 A 档）+ related servers 刷新（改名后） | 你（浏览器） | 两仓库 Repository 页各点一次；缓存若仍 B → Discord 申诉 |
 | A4 | **holdout-labs 主页钉选 6 仓库**（按 flow 顺序） | 你（浏览器） | 指引已在 profile README |
 | A5 | **PyPI token 轮换**：删聊天里出现过的账户级 token，重生成存文件 | 你 | 安全项 |
-| A6 | **PR #12939 / #292 跟进**（合并或撤重提） | 我查/你定 | 若 1 个月无动静再处理 |
+| A6 | **PR 跟进**：#12939（awesome-mcp-servers）/ #292（vibe-coding）/**awesome-quant #593 已合并（08-29）→ 补一个链接修正小 PR**（README 里 foolproof-labs → holdout-labs，顺带作为"外部落地证据"写进叙事） | 我查/你定 | #593 是已合并的外部收录，叙事可用 |
 | A7 | gov "Try in Browser" 几次（usage 信号，91→92 级） | 你（浏览器） | 顺手 |
+| A8 | **Glama Discord 加入**（领 server-author flair；申诉 quality B 缓存） | 你（可选） | 与 A3 联动 |
 
 ## B. 面试/叙事半小时包（wm，纯收尾）
 | # | 事项 | 工作量 | 说明 |
@@ -35,20 +36,22 @@
 | B2 | `wm gate` 启动警告 + `--help` 首屏边界声明 | 30min | 求职提案 1 |
 | B3 | 60 秒 demo 录屏：doctor --residue → apply-policy → audit 前后对比 | 1h | 面试最强资产 |
 | B4 | **README 叙事重排（痛苦→工具→哲学）**：开篇痛点/灾难场景（Agent 工作区被塞满、误删、无审计）→ 30 秒上手（doctor）→ 能力 → 哲学下移到 Why/Philosophy 章节；**gate 措辞全仓统一为"观测探针/治理审计层"**（README、--help、启动横幅一致，不出现"安全网关"暗示）；中文快速上手区同步 | 1-2h | 冷启动七层拆解 + 路线图"叙事顺序固定"（01/02 档案一致结论） |
+| B5 | **事实数字核对单**：简历/叙事用数字必须准确——wm **120** 测试 / gov **100+** 测试（不是 94）；双 Glama **92**（A 档）；工具数 wm 8 / gov 4；双 PyPI 0.4.x；awesome-quant 已收录 | 15min | 求职提案 4 的"94 个测试"数字不实，防错 |
 
 ## C. 下一批（holdout 产品化收尾 + wm 测试加固）
 | # | 事项 | 工作量 | 说明 |
 |---|---|---|---|
 | C1 | gov `audit_pipeline()` 一行 API（内部复用 engine.run_check/report，输出 markdown 汇总） | 0.5-1 天 | 求职提案 3 |
 | C2 | gov examples 端到端（模拟数据，5 分钟跑通；gov-demo 基础上做干净入口） | 0.5-1 天 | 求职提案 10 |
-| C3 | gov test extra 依赖修复（numpy 等进 [test]） | 20min | 现状：装了 numpy 才能收集测试 |
+| C3 | gov test extra 依赖修复（numpy 等进 [test]）；**并核验 PyPI 0.4.0 是否含 785bfc1 的 TDQS 参数描述**（不含 → 补发 0.4.1） | 30min | 现状：装了 numpy 才能收集测试 |
 | C4 | wm 可移植边缘测试（只读目录/超长名/编码怪名/空目录）；**符号链接测试只在 Linux job，Windows 不做** | 0.5-1 天 | 求职提案 4 的修正版；性能测试仅冒烟级 |
+| C5 | **ADR×3**（从 backlog 提级）：gate=观测探针定位 / doctor 建议转 policy 而非硬编码 / journal 用 JSONL 哈希链的取舍 | 0.5-1 天 | 面试"为什么这么设计"弹药库 |
 
 ## D. Backlog（有真实信号再动，防超前建设）
 - wm `policy lint`（冲突/贪婪 glob/不可达）——批判 P1-1，等有用户策略样本再定优先级
 - wm `audit --html` / `health --metrics` / 增量扫描 / examples/presets（目录，非新仓库）
+- 其他 MCP 目录提交：Smithery / PulseMCP / mcp.so / MCPFind（等 v0.5 发布后一次做完，几分钟/个）
 - holdout quickstart 独立仓库 / pit-adjuster-benchmark / 《回测陷阱百科》/ L1-L2 分级
-- ADR（架构决策记录）——面试弹药，抽空写 gate/doctor/journal 三条
 - 复杂策略自动分类（不做——保持"非启发式分类器"定位）
 
 ## 执行顺序建议
