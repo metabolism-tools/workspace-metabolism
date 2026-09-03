@@ -195,7 +195,7 @@ policy file. Advanced users can start from
 | `init` | Scaffold a `metabolism.json` policy file (like `git init`) |
 | `explain <path>` | Show what the policy says about a path (the nutrition label) |
 | `health` | Workspace health score (0-100), with `--json` and `--badge` output |
-| `doctor` | Read-only readiness check for the workspace, policy, state directory and active locks |
+| `doctor` | Read-only readiness check (workspace, policy, state, locks); `--residue` also lists common agent byproducts (`.cursor`, `.claude`, caches, logs) the policy does not govern yet — each with the exact policy entry that would govern it, `--apply-policy` adopts them |
 | `govern <action>` | Check whether an AI action is allowed by policy and record the decision |
 | `gate --target ...` | MCP governance proxy: every tool call of the wrapped server is checked against the policy first |
 | `slim --db PATH` | Policy-driven in-place trimming of heavy JSON fields in a SQLite database (journaled; dry-run by default) |
@@ -259,6 +259,19 @@ declaration, not an authentication mechanism.
 > sandbox**. A compromised or malicious agent can bypass the proxy and talk
 > to the target directly. Gate governs the cooperative agent; OS-level
 > sandboxing governs the hostile one.
+
+**First run, guided:** `wm doctor --residue` scans for the byproducts agents
+usually leave behind (`.cursor`, `.claude`, `node_modules/.cache`,
+`__pycache__`, logs …) that your policy does not govern yet. Every hit shows
+the exact policy entry that would govern it; `--apply-policy` adopts the
+suggestions into `metabolism.json` (creating it if needed). Nothing is ever
+deleted — the suggestions become policy, and the policy still decides
+everything afterwards:
+
+```bash
+wm doctor --residue               # what is ungoverned, and the suggested entries
+wm doctor --residue --apply-policy  # adopt them as policy entries, then audit
+```
 
 ## Policy file
 

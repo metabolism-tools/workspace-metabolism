@@ -1784,3 +1784,182 @@ def recycle_stats(state_dir: Path) -> tuple[int, int]:
                 files += f
                 size += s
     return files, size
+
+
+# ---------------------------------------------------------------------------
+# residue scan: guided first-run onboarding (doctor --residue)
+# ---------------------------------------------------------------------------
+
+MAX_RESIDUE_INSTANCES = 50     # per rule, then truncate (advisory scan)
+MAX_STAT_FILES = 2000          # per directory, then mark size partial
+
+RESIDUE_RULES: list[dict] = [
+    {
+        "lookup": "**/.cursor",
+        "entry": {"path": "**/.cursor", "grade": "G4", "cleanup": "auto", "retention_days": 30,
+                  "intent": "Cursor IDE cache/index"},
+    },
+    {
+        "lookup": "**/.claude",
+        "entry": {"path": "**/.claude", "grade": "G3", "cleanup": "approve", "retention_days": 60,
+                  "intent": "Claude Code workspace traces; review before recycle"},
+    },
+    {
+        "lookup": "**/.pytest_cache",
+        "entry": {"path": "**/.pytest_cache", "grade": "G4", "cleanup": "auto", "retention_days": 30,
+                  "intent": "pytest cache"},
+    },
+    {
+        "lookup": "**/__pycache__",
+        "entry": {"path": "**/__pycache__", "grade": "G4", "cleanup": "auto", "retention_days": 30,
+                  "intent": "python bytecode cache"},
+    },
+    {
+        "lookup": "**/node_modules/.cache",
+        "entry": {"path": "**/node_modules/.cache", "grade": "G4", "cleanup": "auto", "retention_days": 30,
+                  "intent": "node build tool cache"},
+    },
+    {
+        "lookup": "**/.vite",
+        "entry": {"path": "**/.vite", "grade": "G4", "cleanup": "auto", "retention_days": 30,
+                  "intent": "Vite build cache"},
+    },
+    {
+        "lookup": "**/.next/cache",
+        "entry": {"path": "**/.next/cache", "grade": "G4", "cleanup": "auto", "retention_days": 30,
+                  "intent": "Next.js build cache"},
+    },
+    {
+        "lookup": "**/.turbo",
+        "entry": {"path": "**/.turbo", "grade": "G4", "cleanup": "auto", "retention_days": 30,
+                  "intent": "Turborepo cache"},
+    },
+    {
+        "lookup": "**/*.log",
+        "entry": {"path": "**/*.log", "grade": "G3", "cleanup": "approve", "retention_days": 60,
+                  "intent": "log file; review before recycle"},
+    },
+]
+
+
+def _capped_dir_stats(path: Path, cap: int = MAX_STAT_FILES) -> tuple[int, int, bool]:
+    """Count files and bytes under a directory, stopping at ``cap`` files."""
+    files = 0
+    size = 0
+    partial = False
+    for dirpath, dirnames, filenames in os.walk(path):
+        dirnames[:] = [d for d in dirnames if d != ".git"]
+        for name in filenames:
+            files += 1
+            if files > cap:
+                partial = True
+                return files, size, partial
+            try:
+                size += os.path.getsize(os.path.join(dirpath, name))
+            except OSError:
+                pass
+    return files, size, partial
+
+
+def scan_residue(root: Path, registry: Optional[dict] = None) -> dict:
+    """Advisory scan for common agent byproducts the policy does not yet govern.
+
+    Read-only: never moves or deletes anything. Every hit carries the exact
+    policy entry that would govern it (``suggested_entry``), so the user can
+    accept suggestions into the policy instead of the tool hard-coding rules.
+    Instances already covered by the policy, empty directories and paths under
+    .git are skipped.
+    """
+    root = root.resolve()
+    registry = registry or {}
+    hits: list[dict] = []
+    warnings: list[str] = []
+    seen: set[str] = set()
+
+    for rule in RESIDUE_RULES:
+        instances = sorted(root.glob(rule["lookup"]))
+        truncated = len(instances) > MAX_RESIDUE_INSTANCES
+        if truncated:
+            warnings.append(
+                f"rule {rule['lookup']!r}: more than {MAX_RESIDUE_INSTANCES} instances, "
+                "reporting the first ones"
+            )
+        for found in instances[:MAX_RESIDUE_INSTANCES]:
+            try:
+                rel = found.relative_to(root)
+            except ValueError:
+                continue
+            rel_s = rel.as_posix()
+            if ".git" in rel.parts or rel_s in seen:
+                continue
+            if registry.get("entries") and most_specific_entry(registry, rel) is not None:
+                continue
+            is_dir = found.is_dir()
+            if is_dir:
+                files, size, partial = _capped_dir_stats(found)
+                if files == 0:
+                    continue  # nothing to reclaim in an empty dir
+            else:
+                try:
+                    size = found.stat().st_size
+                except OSError:
+                    continue
+                files = 1
+                partial = False
+            seen.add(rel_s)
+            hits.append(
+                {
+                    "path": rel_s,
+                    "is_dir": is_dir,
+                    "files": files,
+                    "size_bytes": size,
+                    "size_partial": partial,
+                    "suggested_entry": rule["entry"],
+                }
+            )
+
+    # Deduplicate suggested entries (many hits may share one rule entry).
+    suggestions: list[dict] = []
+    seen_paths: set[str] = set()
+    for hit in hits:
+        p = hit["suggested_entry"]["path"]
+        if p not in seen_paths:
+            seen_paths.add(p)
+            suggestions.append(hit["suggested_entry"])
+    return {"hits": hits, "suggestions": suggestions, "warnings": warnings}
+
+
+def append_policy_entries(registry_path: Path, entries: list[dict]) -> list[str]:
+    """Append policy entries that are not already present (by exact path).
+
+    Validates the result through the same checks ``load_registry`` applies, so
+    a broken policy can never be written. Returns the added entry paths.
+    """
+    registry_path = registry_path.resolve()
+    data = json.loads(registry_path.read_text(encoding="utf-8-sig"))
+    existing = {str(e.get("path", "")) for e in data.get("entries", [])}
+    # A "**/x" suggestion is redundant when a plain "x" entry (or vice versa)
+    # already governs the same instances.
+    existing_plain = {p[3:] if p.startswith("**/") else p for p in existing}
+    added: list[str] = []
+    for entry in entries:
+        p = str(entry.get("path", ""))
+        plain = p[3:] if p.startswith("**/") else p
+        if p in existing or plain in existing_plain:
+            continue
+        data.setdefault("entries", []).append(dict(entry))
+        added.append(entry["path"])
+    if added:
+        # validate the merged data (same checks as load_registry) before writing
+        import tempfile as _tempfile
+
+        with _tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as tf:
+            json.dump(data, tf, ensure_ascii=False, indent=2)
+            tf.write("\n")
+            tmp_path = Path(tf.name)
+        try:
+            load_registry(tmp_path)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+    registry_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return added
