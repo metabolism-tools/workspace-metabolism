@@ -376,7 +376,8 @@ session-end hook so every loop ends with a checkup.
 
 DSH is an agent harness where *everything is a plugin* (Cordis). Its official
 third-party tool channel is MCP, and `wm mcp` already speaks it — one
-`cordis.yml` row exposes all seven wm tools to the DSH agent:
+`cordis.yml` row exposes all eight wm tools to the DSH agent (audit, health,
+explain, verify, `wm_govern` pre-action policy checks, clean, init, rollback):
 
 ```yaml
 - insert:
