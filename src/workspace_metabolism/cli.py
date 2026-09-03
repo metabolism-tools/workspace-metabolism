@@ -175,6 +175,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_gate = sub.add_parser(
         "gate",
         help="run an MCP governance proxy: every tool call is checked against the policy first",
+        description=(
+            "EXPERIMENTAL governance proxy (audit/observe layer, NOT a sandbox). "
+            "Every tools/call is checked against ai_governance before forwarding and "
+            "the decision is journaled. A compromised or malicious agent can bypass "
+            "this proxy and call the target directly; approver fields are auditable "
+            "declarations, not authentication. Do not rely on gate as a security boundary."
+        ),
     )
     p_gate.add_argument(
         "--target",

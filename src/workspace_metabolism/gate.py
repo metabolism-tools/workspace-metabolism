@@ -89,6 +89,13 @@ def gate_main(
     if registry_path is None:
         raise SystemExit("gate needs a policy file; run `wm init` first (or pass --registry)")
     registry = load_registry(registry_path)
+    print(
+        "\n[wm gate] EXPERIMENTAL — audit/observe layer, NOT a sandbox.\n"
+        "  A compromised or malicious agent can bypass this proxy and call the target\n"
+        "  server directly. approver fields are auditable declarations, not\n"
+        "  authentication. Do not rely on gate as a security boundary.\n",
+        file=sys.stderr,
+    )
     child = subprocess.Popen(
         target,
         stdin=subprocess.PIPE,

@@ -15,6 +15,19 @@ this roadmap tracks both.
 - Launch: v0.1.2 on PyPI, GitHub release, discussion announcement, and
   paste-ready copy for X, Zhihu and Xiaohongshu.
 
+## In v0.5.0 (shipped)
+
+- Guided first run: `wm doctor --residue` scans for common agent byproducts
+  (`.cursor`, `.claude`, `node_modules/.cache`, `__pycache__`, `.pytest_cache`,
+  `.vite`, `.next/cache`, `.turbo`, `*.log`) the policy does not govern yet,
+  each hit with the exact policy entry that would govern it;
+  `--apply-policy` adopts the suggestions (auto-creating the policy via
+  `wm init` defaults when missing). Advisory only — suggestions become policy,
+  the policy still decides everything.
+- Narrative rework: README leads with the problem, then the 30-second path,
+  then honest boundaries; `wm gate` prints an experimental banner and its
+  `--help` carries the audit-layer-not-sandbox boundary on the first screen.
+
 ## In v0.4.0 (shipped)
 
 - `wm gate`: MCP governance proxy — wraps any MCP stdio server; every
