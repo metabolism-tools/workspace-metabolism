@@ -1,6 +1,6 @@
 # DSH GitHub Discussion post — final text (posted)
 
-> Posted: 2026-09-03 to https://github.com/deepseek-ai/deepseek-harness/discussions
+> Posted: 2026-09-03 to https://github.com/deepseek-ai/deepseek-harness/discussions/5538
 > Category: `Show Your Plugins!` · Account: tongflau-dongzhu
 > Status: FINAL — this file is the posted text, kept as a record.
 > Follows the outreach discipline from `docs/research/outreach-log-2026-08-18.md`.
