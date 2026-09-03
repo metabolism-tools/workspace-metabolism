@@ -1,7 +1,7 @@
-# Opt-in DeepSeek Harness integration: expose workspace-metabolism's seven MCP
-# tools (wm_audit / wm_health / wm_explain / wm_verify / wm_clean / wm_init /
-# wm_rollback) to the DSH agent through the official third-party bridge,
-# @deepseek-ai/dsh-mcp-client.
+# Opt-in DeepSeek Harness integration: expose workspace-metabolism's eight MCP
+# tools (wm_audit / wm_health / wm_explain / wm_verify / wm_govern / wm_clean /
+# wm_init / wm_rollback) to the DSH agent through the official third-party
+# bridge, @deepseek-ai/dsh-mcp-client.
 #
 # Prerequisites
 #   1. Install wm and put it on PATH:  pip install workspace-metabolism

@@ -8,9 +8,9 @@ workspace-metabolism integrates with DSH **with zero code on either side**: one
 `cordis.yml` row is the whole integration.
 
 What the DSH agent gets: `wm_audit`, `wm_health`, `wm_explain`, `wm_verify`,
-`wm_clean` (dry-run by default), `wm_init`, and `wm_rollback` — the same
-policy-driven lifecycle as the CLI, now callable mid-session by the agent
-itself.
+`wm_govern` (pre-action policy checks), `wm_clean` (dry-run by default),
+`wm_init`, and `wm_rollback` — the same policy-driven lifecycle as the CLI,
+now callable mid-session by the agent itself.
 
 ## Prerequisites
 
@@ -67,6 +67,7 @@ The default state directory lives outside the workspace on purpose, so
 | `wm_health` | `mcp__wm__wm_health` | Workspace health score 0–100 with component breakdown |
 | `wm_explain` | `mcp__wm__wm_explain` | Why a path is graded the way it is (the nutrition label) |
 | `wm_verify` | `mcp__wm__wm_verify` | Journal hash-chain and run-manifest integrity check |
+| `wm_govern` | `mcp__wm__wm_govern` | Ask the policy before acting: is this `read`/`write`/`execute`/`delete`/`network` action on these paths allowed? Unknown actions are denied by default; sensitive actions can require a named human approver; the decision lands in the journal |
 | `wm_clean` | `mcp__wm__wm_clean` | Policy-driven cleanup plan; **dry-run unless `execute=true`** |
 | `wm_init` | `mcp__wm__wm_init` | Scaffold `metabolism.json` for a workspace with safe defaults (like `git init`) |
 | `wm_rollback` | `mcp__wm__wm_rollback` | Restore a previous `wm_clean` run from the recycle area, SHA-256 verified; **dry-run unless `execute=true`** |
@@ -82,6 +83,18 @@ The default state directory lives outside the workspace on purpose, so
   SHA-256 hashes, and `wm rollback` restores them. `purge` is the only real
   delete, and only inside the recycle area.
 - Every action lands in a hash-chained journal; `wm_verify` detects edits.
+- `wm_govern` is the ask-before-acting gate: deny-by-default for unknown
+  actions, optional preview, optional named human approver, and every decision
+  is journaled — so an agent that consults the policy before touching files
+  leaves the same audit trail as every cleanup it runs.
+
+## Policy checks before actions
+
+`wm_govern` is the tool that turns a *cleanup* policy into an *action* policy:
+an agent can check `write`/`delete`/`execute` on concrete paths against
+`metabolism.json` before doing them, without the policy being enforced by the
+agent's own judgment. It pairs naturally with DSH's `tools/pre-execute`
+philosophy — decide by policy, not by vibes.
 
 ## A policy tuned for DSH workspaces
 
