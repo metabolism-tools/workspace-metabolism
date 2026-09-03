@@ -17,13 +17,47 @@ audit, reversible cleanup, rollback, and hash-chained verification. Python
 
 ▶️ Watch the 60-second animated demo: [docs/demo-terminal.html](docs/demo-terminal.html)
 
-**Status:** v0.4.0 — a proposal plus reference implementation. Early days: no
-external users yet, and the policy schema may shift before v1.0. Early adopters
-are welcome to break it on weird directory structures.
+## The problem
 
-Glama (MCP server directory) rates this server **A in all four checklist
-categories** — Server Coherence, Tool Definition Quality, Maintenance, License
-([score page](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism/score)).
+AI coding agents (Claude Code, Codex, DeepSeek Harness, …) share one thing —
+your workspace — and they leave a trail of scratch files, caches and staged
+directories behind. Nobody owns the cleanup: deleting by hand is irreversible,
+scheduled scripts have no audit trail, and the next agent run works in the
+garbage the last one left.
+
+`workspace-metabolism` is the **policy layer** for that: one `metabolism.json`
+decides what every path is worth (G1 never touch → G4 auto), nothing is ever
+deleted by pattern — items move to a recycle area with per-file SHA-256 hashes
+and `rollback` restores them exactly — and every action lands in a
+**hash-chained journal** that `verify` can audit.
+
+**Try it in 30 seconds:**
+
+```bash
+pip install workspace-metabolism
+wm doctor --residue                  # what agent byproducts your policy doesn't govern yet
+wm doctor --residue --apply-policy   # adopt the suggestions as policy entries (creates the file if missing)
+wm audit                             # read-only checkup with health score
+```
+
+**Status:** v0.5.0. Published on PyPI; rated **Glama quality A (92/100)** —
+above most official MCP servers ([score](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism/score)).
+Honest: no large production deployments yet, and the policy schema may shift
+before v1.0. Early adopters are welcome to break it on weird directory
+structures.
+
+**Honest boundaries** — what this is *not*:
+
+- **Not a sandbox.** `wm gate` is a governance/audit layer for cooperative
+  agents; a compromised or malicious agent can bypass it and call the target
+  server directly. OS-level sandboxing is a different layer.
+- **Not a heuristic classifier.** It never decides "this file is garbage" on
+  its own — only the policy you approved decides. `doctor` only *suggests*
+  entries; nothing is governed until you adopt them.
+- **Does not fix agent bugs.** It governs the byproducts agents leave; it does
+  not stop agents from producing them.
+- **Local audit, not a notary.** The hash-chained journal detects tampering
+  with the tool's own records; it is not a distributed or court-grade ledger.
 
 This repo has two linked ideas:
 
