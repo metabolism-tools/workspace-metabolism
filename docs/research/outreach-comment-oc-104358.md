@@ -8,8 +8,10 @@ For the `openclaw-staged-*` residue class specifically, the read-only `audit` is
 git clone https://github.com/metabolism-tools/workspace-metabolism.git
 cd workspace-metabolism
 python examples/demo.py
-# or read-only on your own workspace copy:
-PYTHONPATH=src python -m workspace_metabolism audit --root /path/to/copy
+# or read-only on your own workspace copy — the --root flag is a global option since v0.3,
+# and audit expects a metabolism.json policy in the target dir:
+PYTHONPATH=src python -m workspace_metabolism --root /path/to/copy init   # once per copy
+PYTHONPATH=src python -m workspace_metabolism --root /path/to/copy audit
 ```
 
 It's early days (v0.2, no external users yet), so I'm specifically looking for feedback on whether retention rules + provenance + rollback would make an external governance layer worth it for your workflow, or whether the product fix is sufficient once it lands. Either answer is useful.
