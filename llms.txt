@@ -1,0 +1,11 @@
+# workspace-metabolism
+
+> Policy-driven governance for what AI coding agents leave in your workspace: one `metabolism.json` policy file decides what each path is worth; audit (read-only), recyclable clean (dry-run by default), exact rollback, purge, and a hash-chained journal that `verify` audits. Ships as a zero-dependency Python CLI (`wm`) and an MCP server. MIT.
+
+- GitHub: https://github.com/metabolism-tools/workspace-metabolism
+- PyPI: https://pypi.org/project/workspace-metabolism/
+- Install: `pip install workspace-metabolism`
+- Quick intro: `wm doctor --residue` (what agent byproducts your policy doesn't govern yet) then `python examples/demo.py` (30-second blind-delete vs recycle+rollback comparison)
+- Commands: `wm init`, `wm audit`, `wm clean --grades G4`, `wm rollback <run_id>`, `wm purge`, `wm verify`, `wm doctor`, `wm govern`, `wm gate`, `wm mcp`
+- MCP directory listing: https://glama.ai/mcp/servers (quality score A)
+- Full documentation: https://github.com/metabolism-tools/workspace-metabolism/blob/main/README.md
