@@ -63,3 +63,40 @@ def test_other_tools_are_not_wm_evidence(tmp_path):
     path = tmp_path / "journal.jsonl"
     path.write_text('{"kind":"compaction","verified":true}\n', encoding="utf-8")
     assert module.summarize(path)["evidence_status"] == "unsupported_format"
+
+
+@pytest.mark.parametrize("checked,relation", [
+    ("2026-09-08T01:30:00+08:00", "after_latest_record"),
+    ("2026-09-07T05:50:00+08:00", "not_after_latest_record"),
+    ("2026-09-06T23:00:00+08:00", "not_after_latest_record")])
+def test_followup_only_links_in_time(tmp_path, checked, relation):
+    journal_append(tmp_path, "slim", "test", ts="2026-09-07T05:50:00+08:00", status="ok")
+    report = module.summarize(tmp_path / "journal.jsonl")
+    path = tmp_path / "check.json"
+    path.write_text(json.dumps({"checked_at": checked, "ok": True,
+                                "private_account": "secret", "engine": {"tick_processes": 0}}))
+    result = module.observe_followup(report, path)
+    assert result["relation"] == relation
+    assert result["scope_match_verified"] is False
+    assert result["business_recovery_verified"] is False
+    assert "secret" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("value", [None, {}, {"ok": "true", "checked_at": "2026-09-08T00:00:00+08:00"},
+    {"ok": True, "checked_at": "2026-09-08T00:00:00"}])
+def test_bad_followup_not_accepted(tmp_path, value):
+    path = tmp_path / "check.json"
+    path.write_text(json.dumps(value))
+    assert module.observe_followup({}, path)["status"] == "invalid"
+
+
+def test_timestamp_gaps_do_not_create_temporal_link(tmp_path):
+    journal_append(tmp_path, "slim", "test", ts="no-time", status="ok")
+    report = module.summarize(tmp_path / "journal.jsonl")
+    assert report["invalid_timestamps"] == 1
+    assert report["latest_record_at"] is None
+    path = tmp_path / "check.json"
+    path.write_text('{"checked_at":"2026-09-08T00:00:00+08:00","ok":false}')
+    result = module.observe_followup(report, path)
+    assert result["relation"] == "unknown"
+    assert result["reported_ok"] is False
