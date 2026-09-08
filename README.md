@@ -469,3 +469,37 @@ empty, damaged, unsupported or oversized evidence returns exit 1.
 Time association does not establish matching scope, freshness, causality or
 business recovery. Human supervision, Token cost and net savings remain unknown.
 See [case collection guide](docs/case-studies/README.md).
+
+## Safe recent-row retention (0.5.2)
+
+`slim` can now match a real database relationship instead of assuming the
+ordering timestamp is embedded in every JSON payload:
+
+```json
+"db_slim": {
+  "table": "work_units",
+  "blob_column": "payload_json",
+  "strip_keys": ["regenerable_detail"],
+  "protected_keys": ["consumer_evidence", "failure_reason"],
+  "keep_recent": {
+    "table": "epochs", "column": "created_at", "n": 3,
+    "key_column": "epoch_id", "row_column": "epoch_id"
+  },
+  "vacuum_min_gb": 1.0
+}
+```
+
+`column` sorts the reference table; `key_column` joins to the work table's
+`row_column`. Reference keys must be unique and non-null. For a row that would
+change, a missing relationship stops the whole plan before any update. The
+report's `rows_kept_recent` counts otherwise-modifiable rows protected by age.
+Policies that omit the two new columns retain legacy JSON matching, but missing
+or unknown references now stop instead of silently stripping the row. Migrate
+such policies before scheduled use. Protected keys are top-level JSON keys;
+conflicting CLI strip requests are rejected. This is not recursive field matching.
+
+Execution holds the wm state lock and a SQLite write transaction across planning
+and updates. Preview opens the database read-only but still writes the existing
+wm journal. External writers must still observe the application's maintenance
+window; these locks do not validate consumer correctness or coordinate other
+systems. Backup/restore and post-maintenance consumer checks remain required.
