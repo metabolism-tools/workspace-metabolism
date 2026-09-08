@@ -455,3 +455,17 @@ the *research* honest.
 ## License
 
 MIT
+
+## Maintenance evidence (0.5.1)
+
+`wm --state-dir /path/to/state evidence` prints a bounded, read-only JSON
+summary of `journal.jsonl`. Optionally add `--observation check.json` to read
+an existing check containing timezone-aware `checked_at` and boolean `ok`.
+No policy is required. Each input is limited to 8 MiB; no files are written.
+
+Exit 0 means a nonempty internally consistent journal and, when requested,
+a readable valid check. It does **not** mean the system is healthy. Missing,
+empty, damaged, unsupported or oversized evidence returns exit 1.
+Time association does not establish matching scope, freshness, causality or
+business recovery. Human supervision, Token cost and net savings remain unknown.
+See [case collection guide](docs/case-studies/README.md).
