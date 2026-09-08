@@ -117,6 +117,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("verify", help="verify the journal hash chain and run manifests")
 
+    p_evidence = sub.add_parser("evidence", help="read-only journal evidence summary (JSON; not a health verdict)")
+    p_evidence.add_argument("--observation", type=Path, help="optional check JSON with checked_at and boolean ok")
+
     p_status = sub.add_parser("status", help="workspace and state overview")
 
     p_init = sub.add_parser("init", help="scaffold a metabolism.json policy file (like `git init`)")
@@ -205,6 +208,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
     state_dir = _resolve_state_dir(root, args.state_dir)
+    if args.command == "evidence":
+        from .evidence import summarize, observe_followup
+        result = summarize(state_dir / "journal.jsonl")
+        valid = result["evidence_status"] == "chain_consistent"
+        if args.observation:
+            result["followup"] = observe_followup(result, args.observation)
+            valid = valid and result["followup"]["status"] == "observation_only"
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if valid else 1
     window = parse_window(args.protected_window)
     operator = "auto" if getattr(args, "auto", False) else "manual"
     registry_path = _resolve_registry(root, args.registry)

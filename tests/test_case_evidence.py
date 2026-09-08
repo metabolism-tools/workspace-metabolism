@@ -1,0 +1,111 @@
+import json
+from pathlib import Path
+
+import pytest
+from workspace_metabolism.core import journal_append
+
+import workspace_metabolism.evidence as module
+
+
+def test_real_writer_outcomes_and_privacy(tmp_path):
+    journal_append(tmp_path, "slim", "private-user", status="dry_run", db="secret-db")
+    journal_append(tmp_path, "slim", "private-user", status="ok", reclaimed_bytes=900)
+    journal_append(tmp_path, "govern", "private-user", decision="deny", paths=["secret-path"])
+    journal_append(tmp_path, "slim", "private-user", status="error", error="secret-error")
+    path = tmp_path / "journal.jsonl"
+    before = path.read_bytes()
+    report = module.summarize(path)
+    assert report["evidence_status"] == "chain_consistent"
+    assert report["operation_observations"] == {
+        "preview": 1, "execution_reported_ok": 1, "permission_denied": 1, "failure_reported": 1}
+    assert report["business_recovery_verified"] is False
+    assert report["supervision_minutes"] is None
+    assert report["net_storage_savings_bytes"] is None
+    assert "secret" not in json.dumps(report)
+    assert "private-user" not in json.dumps(report)
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("payload,status", [(None, "missing"), (b"", "empty"),
+    (b"{", "invalid"), (b"[]\n", "invalid"), (b"\xff", "invalid")])
+def test_absence_and_damage_are_not_success(tmp_path, payload, status):
+    path = tmp_path / "journal.jsonl"
+    if payload is not None:
+        path.write_bytes(payload)
+    report = module.summarize(path)
+    assert report["evidence_status"] == status
+    assert report["coverage_verified"] is False
+
+
+def test_tampering_and_partial_tail_discard_counts(tmp_path):
+    journal_append(tmp_path, "audit", "test")
+    path = tmp_path / "journal.jsonl"
+    original = path.read_bytes()
+    for payload in (original + b"{", original.replace(b'"seq": 1', b'"seq": 2')):
+        path.write_bytes(payload)
+        report = module.summarize(path)
+        assert report["evidence_status"] == "invalid"
+        assert report["actions"] == {}
+
+
+def test_budget(tmp_path, monkeypatch):
+    path = tmp_path / "journal.jsonl"
+    path.write_bytes(b" " * 33)
+    monkeypatch.setattr(module, "MAX_BYTES", 32)
+    assert module.summarize(path)["evidence_status"] == "over_budget"
+
+
+def test_other_tools_are_not_wm_evidence(tmp_path):
+    path = tmp_path / "journal.jsonl"
+    path.write_text('{"kind":"compaction","verified":true}\n', encoding="utf-8")
+    assert module.summarize(path)["evidence_status"] == "unsupported_format"
+
+
+@pytest.mark.parametrize("checked,relation", [
+    ("2026-09-08T01:30:00+08:00", "after_latest_record"),
+    ("2026-09-07T05:50:00+08:00", "not_after_latest_record"),
+    ("2026-09-06T23:00:00+08:00", "not_after_latest_record")])
+def test_followup_only_links_in_time(tmp_path, checked, relation):
+    journal_append(tmp_path, "slim", "test", ts="2026-09-07T05:50:00+08:00", status="ok")
+    report = module.summarize(tmp_path / "journal.jsonl")
+    path = tmp_path / "check.json"
+    path.write_text(json.dumps({"checked_at": checked, "ok": True,
+                                "private_account": "secret", "engine": {"tick_processes": 0}}))
+    result = module.observe_followup(report, path)
+    assert result["relation"] == relation
+    assert result["scope_match_verified"] is False
+    assert result["business_recovery_verified"] is False
+    assert "secret" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("value", [None, {}, {"ok": "true", "checked_at": "2026-09-08T00:00:00+08:00"},
+    {"ok": True, "checked_at": "2026-09-08T00:00:00"}])
+def test_bad_followup_not_accepted(tmp_path, value):
+    path = tmp_path / "check.json"
+    path.write_text(json.dumps(value))
+    assert module.observe_followup({}, path)["status"] == "invalid"
+
+
+def test_timestamp_gaps_do_not_create_temporal_link(tmp_path):
+    journal_append(tmp_path, "slim", "test", ts="no-time", status="ok")
+    report = module.summarize(tmp_path / "journal.jsonl")
+    assert report["invalid_timestamps"] == 1
+    assert report["latest_record_at"] is None
+    path = tmp_path / "check.json"
+    path.write_text('{"checked_at":"2026-09-08T00:00:00+08:00","ok":false}')
+    result = module.observe_followup(report, path)
+    assert result["relation"] == "unknown"
+    assert result["reported_ok"] is False
+
+
+def test_installed_cli_readonly_without_registry(tmp_path, capsys):
+    from workspace_metabolism.cli import main
+    state = tmp_path / "state"
+    journal_append(state, "slim", "test", status="ok")
+    before = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert main(["--root", str(tmp_path), "--state-dir", "state", "evidence"]) == 0
+    assert json.loads(capsys.readouterr().out)["entries"] == 1
+    after = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert before == after
+    assert main(["--state-dir", str(tmp_path / "missing"), "evidence"]) == 1
+    assert json.loads(capsys.readouterr().out)["evidence_status"] == "missing"
