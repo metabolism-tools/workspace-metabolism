@@ -1,0 +1,55 @@
+{
+  "origin": "retrospective_cloud_receipt_mapping",
+  "assessment_time": "2026-09-08T13:27:42.785578+00:00",
+  "boundary": {
+    "binding": {
+      "cycle_id": "matrix-maintenance-20260908",
+      "scope_sha256": "3161322b1693bd3e9b100288dc7f551f6d962e4548b3836b89ce8efa20aba8c4",
+      "policy_version": "9fc4e533f48049172ea0290c26db9b5b814a2a456fa07e305a1f98b12b96e666",
+      "executor_version": "fe5524cb36991a3664922ba6d5812e27ea5e701b5c7c01554aa79ab9e216563f",
+      "consumer_version": "f12e56bb912d6979712444338986216d6b29343b07d9a8d2e68ac1e37fbe6d40"
+    },
+    "decision": "allow",
+    "recovery_required": false
+  },
+  "execution": {
+    "binding": {
+      "cycle_id": "matrix-maintenance-20260908",
+      "scope_sha256": "3161322b1693bd3e9b100288dc7f551f6d962e4548b3836b89ce8efa20aba8c4",
+      "policy_version": "9fc4e533f48049172ea0290c26db9b5b814a2a456fa07e305a1f98b12b96e666",
+      "executor_version": "fe5524cb36991a3664922ba6d5812e27ea5e701b5c7c01554aa79ab9e216563f",
+      "consumer_version": "f12e56bb912d6979712444338986216d6b29343b07d9a8d2e68ac1e37fbe6d40"
+    },
+    "status": "completed",
+    "finished_at": "2026-09-08T13:26:54.140137+00:00"
+  },
+  "checks": [
+    {
+      "name": "integrity",
+      "binding": {
+        "cycle_id": "matrix-maintenance-20260908",
+        "scope_sha256": "3161322b1693bd3e9b100288dc7f551f6d962e4548b3836b89ce8efa20aba8c4",
+        "policy_version": "9fc4e533f48049172ea0290c26db9b5b814a2a456fa07e305a1f98b12b96e666",
+        "executor_version": "fe5524cb36991a3664922ba6d5812e27ea5e701b5c7c01554aa79ab9e216563f",
+        "consumer_version": "f12e56bb912d6979712444338986216d6b29343b07d9a8d2e68ac1e37fbe6d40"
+      },
+      "passed": true,
+      "receipt_sha256": "6a3281b678650c9787b86ed225e9d720cbc5de4794155431498f9c3a1170d92a",
+      "checked_at": "2026-09-08T13:27:42.785578+00:00",
+      "valid_until": "2026-09-08T13:27:42.785578+00:00"
+    }
+  ],
+  "human": {
+    "source": "unmeasured",
+    "coverage_complete": false,
+    "sessions": null,
+    "minutes": null
+  },
+  "auxiliary": {
+    "net_storage_savings_bytes": 66433812212,
+    "objects": 279,
+    "shared_blocks": 60,
+    "independent_cycles": 1,
+    "limitation": "Retrospective mapping, not a preregistered experiment. No next research workflow receipt or complete human supervision record attached. Historical point-in-time validity only."
+  }
+}
