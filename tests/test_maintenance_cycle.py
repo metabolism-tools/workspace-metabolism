@@ -18,9 +18,39 @@ def packet():
                    executor_version='1', consumer_version='1')
     check = dict(binding=binding.copy(), receipt_sha256='b' * 64, passed=True,
                  checked_at='2026-09-08T13:30:00+00:00', valid_until=NOW)
-    return dict(boundary=dict(binding=binding, decision='allow', recovery_required=False),
+    check['consumption'] = dict(mode='real_workflow', input_manifest_sha256='c' * 64,
+                                acceptance_version='acceptance-1', output_sha256='d' * 64,
+                                accepted=True, started_at='2026-09-08T13:10:00+00:00')
+    return dict(boundary=dict(binding=binding, decision='allow', recovery_required=False,
+                             consumer_contract=dict(input_manifest_sha256='c' * 64,
+                                                    acceptance_version='acceptance-1')),
                 execution=dict(binding=binding.copy(), status='completed', finished_at='2026-09-08T13:00:00+00:00'),
                 checks=[dict(check, name='integrity'), dict(check, name='consumer')])
+
+
+@pytest.mark.parametrize('change,reason', [
+    ({'mode': 'replay'}, 'real_workflow_missing'),
+    ({'mode': 'heartbeat'}, 'real_workflow_missing'),
+    ({'input_manifest_sha256': 'e' * 64}, 'input_manifest_mismatch'),
+    ({'acceptance_version': 'other'}, 'acceptance_mismatch'),
+    ({'output_sha256': ''}, 'output_digest_missing'),
+    ({'accepted': None}, 'output_acceptance_missing'),
+    ({'accepted': False}, 'output_rejected'),
+    ({'started_at': '2026-09-08T12:59:00+00:00'}, 'consumption_outside_window'),
+    ({'started_at': NOW}, 'consumption_outside_window'),
+])
+def test_consumer_claim_requires_content_and_real_output(change, reason):
+    p = packet()
+    p['checks'][1]['consumption'].update(change)
+    result = cycle.evaluate(p, NOW)
+    assert 'consumer:' + reason in result['gaps']
+    assert result['state'] == ('checks_failed' if reason == 'output_rejected' else 'verification_pending')
+
+
+def test_old_boolean_only_consumer_cannot_pass():
+    p = packet()
+    del p['boundary']['consumer_contract']
+    assert 'consumer:consumer_contract_missing' in cycle.evaluate(p, NOW)['gaps']
 
 
 def test_bound_checks_do_not_invent_supervision_or_authority():

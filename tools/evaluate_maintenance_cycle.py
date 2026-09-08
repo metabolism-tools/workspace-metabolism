@@ -22,6 +22,35 @@ def stamp(value):
     return parsed
 
 
+def consumer_gap(boundary, check, finished):
+    """Require a declared real workflow and content-bound acceptance contract."""
+    contract = boundary.get('consumer_contract', {})
+    usage = check.get('consumption', {})
+    if not isinstance(contract, dict) or not isinstance(usage, dict):
+        return 'consumer_contract_missing'
+    digest = contract.get('input_manifest_sha256', '')
+    acceptance = contract.get('acceptance_version')
+    if (not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{64}', digest)
+            or not isinstance(acceptance, str) or not acceptance.strip()):
+        return 'consumer_contract_missing'
+    if usage.get('mode') != 'real_workflow':
+        return 'real_workflow_missing'
+    if usage.get('input_manifest_sha256') != digest:
+        return 'input_manifest_mismatch'
+    if usage.get('acceptance_version') != acceptance:
+        return 'acceptance_mismatch'
+    if not re.fullmatch('[0-9a-f]{64}', str(usage.get('output_sha256', ''))):
+        return 'output_digest_missing'
+    if usage.get('accepted') is not True:
+        return 'output_rejected' if usage.get('accepted') is False else 'output_acceptance_missing'
+    try:
+        if not (finished <= stamp(usage['started_at']) <= stamp(check['checked_at'])):
+            return 'consumption_outside_window'
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return 'consumption_outside_window'
+    return None
+
+
 def evaluate(packet, as_of):
     """Evaluate at an explicit time; only fixed reason codes leave this function."""
     now = stamp(as_of)
@@ -33,7 +62,7 @@ def evaluate(packet, as_of):
         raise ValueError('invalid_scope_digest')
     if type(boundary['recovery_required']) is not bool:
         raise ValueError('invalid_recovery_requirement')
-    result = dict(schema='wm.maintenance_cycle.v1', mode='read_only_assessment',
+    result = dict(schema='wm.maintenance_cycle.v2', mode='read_only_assessment',
                   assessed_at=now.isoformat(), evidence_trust='reported_not_authenticated',
                   supervision_minutes=None, supervision_sessions=None,
                   supervision_benefit='not_established', token_benefit='not_established',
@@ -80,6 +109,9 @@ def evaluate(packet, as_of):
                 reason, failed = 'failed', True
             elif check.get('passed') is not True:
                 reason = 'unknown'
+            elif name == 'consumer':
+                reason = consumer_gap(boundary, check, finished)
+                failed = failed or reason == 'output_rejected'
         if reason:
             result['gaps'].append(f'{name}:{reason}')
         else:
