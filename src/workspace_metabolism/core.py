@@ -1485,12 +1485,16 @@ def db_slim_policy(registry: dict | None, db_path: Path) -> dict:
              "table": "sessions",
              "blob_column": "payload_json",
              "strip_keys": ["factor_observations"],
-             "keep_recent": {"table": "epochs", "column": "created_at", "n": 3},
+             "keep_recent": {"table": "epochs", "column": "created_at", "n": 3,
+                             "key_column": "epoch_id", "row_column": "epoch_id"},
+             "protected_keys": ["evidence"],
              "vacuum_min_gb": 1.0
          }}
 
-    ``keep_recent`` keeps rows whose reference value is among the newest N
-    distinct values of the reference column untouched (e.g. the newest N
+    ``keep_recent`` orders reference rows by ``column`` and can join their
+    ``key_column`` to the data table's ``row_column``. Without these two
+    fields, the legacy JSON reference must be present and resolvable.
+    Protected keys cannot be stripped even by CLI overrides. Recent rows stay untouched (e.g. the newest N
     epochs). Matching is path-segment precise (a generic ``data`` entry must
     not shadow ``data/app.db``) and the longest matching entry wins.
     Everything not specified falls back to safe defaults.
@@ -1525,6 +1529,22 @@ def db_slim_policy(registry: dict | None, db_path: Path) -> dict:
 
 
 def slim(
+    db_path: Path, registry_path: Path | None, state_dir: Path, *,
+    table: str | None = None, blob_column: str | None = None,
+    strip_keys: tuple[str, ...] = (), keep_recent: int | None = None,
+    keep_table: str | None = None, keep_column: str | None = None,
+    vacuum_min_gb: float | None = None, yes: bool = False,
+    operator: str = "manual", decision_id: Optional[str] = None,
+) -> dict:
+    """Serialize maintenance and its journal; SQLite serializes planning/writes."""
+    with state_operation_lock(state_dir, "slim"):
+        return _slim_unlocked(db_path, registry_path, state_dir,
+            table=table, blob_column=blob_column, strip_keys=strip_keys,
+            keep_recent=keep_recent, keep_table=keep_table, keep_column=keep_column,
+            vacuum_min_gb=vacuum_min_gb, yes=yes, operator=operator, decision_id=decision_id)
+
+
+def _slim_unlocked(
     db_path: Path,
     registry_path: Path | None,
     state_dir: Path,
@@ -1568,6 +1588,19 @@ def slim(
     )
     keep_tbl = keep_table or ((policy.get("keep_recent") or {}).get("table") if policy.get("keep_recent") else None)
     keep_col = keep_column or ((policy.get("keep_recent") or {}).get("column") if policy.get("keep_recent") else None)
+    keep_config = policy.get("keep_recent") or {}
+    key_col = keep_config.get("key_column")
+    row_col = keep_config.get("row_column")
+    protected = policy.get("protected_keys", [])
+    if not isinstance(protected, list) or any(not isinstance(k, str) or not k for k in protected):
+        raise SystemExit("db_slim.protected_keys must be a list of nonempty strings")
+    if set(keys).intersection(protected):
+        raise SystemExit("slim refuses to strip policy-protected keys")
+    if bool(key_col) != bool(row_col):
+        raise SystemExit("keep_recent needs both key_column and row_column")
+    if keep_tbl or keep_col or keep_n is not None or key_col or row_col:
+        if not keep_tbl or not keep_col or type(keep_n) is not int or keep_n < 1:
+            raise SystemExit("keep_recent needs table, column and a positive integer n")
     vmin = vacuum_min_gb if vacuum_min_gb is not None else (
         float(policy["vacuum_min_gb"]) if policy.get("vacuum_min_gb") is not None else 1.0
     )
@@ -1579,15 +1612,16 @@ def slim(
         )
     if not keys:
         raise SystemExit("slim needs at least one --strip-keys (or entry.db_slim.strip_keys)")
-    for name in (table, blob_column, keep_tbl or "", keep_col or ""):
+    for name in (table, blob_column, keep_tbl or "", keep_col or "", key_col or "", row_col or ""):
         if name and not _valid_identifier(name):
             raise SystemExit(f"invalid identifier: {name!r}")
 
     import sqlite3
 
-    con = sqlite3.connect(str(db_path))
+    con = sqlite3.connect(db_path.as_uri() + "?mode=" + ("rw" if yes else "ro"), uri=True)
     try:
         con.execute("PRAGMA busy_timeout = 30000")
+        con.execute("BEGIN IMMEDIATE" if yes else "BEGIN")
         cols = {row[1] for row in con.execute(f'PRAGMA table_info("{table}")')}
         if blob_column not in cols:
             raise SystemExit(f"column {blob_column!r} not in table {table!r}: {sorted(cols)}")
@@ -1595,30 +1629,46 @@ def slim(
             kcols = {row[1] for row in con.execute(f'PRAGMA table_info("{keep_tbl}")')}
             if keep_col not in kcols:
                 raise SystemExit(f"column {keep_col!r} not in keep table {keep_tbl!r}: {sorted(kcols)}")
-            recent_values = {
-                row[0] for row in con.execute(
-                    f'SELECT DISTINCT "{keep_col}" FROM "{keep_tbl}" '
-                    f'ORDER BY "{keep_col}" DESC LIMIT ?',
-                    (int(keep_n),),
-                )
-            }
+            if key_col:
+                if key_col not in kcols or row_col not in cols:
+                    raise SystemExit("keep_recent relationship columns not in schema")
+                invalid = con.execute(
+                    f'SELECT "{key_col}" FROM "{keep_tbl}" GROUP BY "{key_col}" '
+                    f'HAVING "{key_col}" IS NULL OR COUNT(*) > 1 LIMIT 1'
+                ).fetchone()
+                if invalid is not None:
+                    raise SystemExit("keep_recent reference keys must be unique and non-null")
+                if con.execute(f'SELECT 1 FROM "{keep_tbl}" WHERE "{keep_col}" IS NULL LIMIT 1').fetchone():
+                    raise SystemExit("keep_recent ordering values must not be null")
+            ref_col = key_col or keep_col
+            recent_values = {row[0] for row in con.execute(
+                f'SELECT DISTINCT "{ref_col}" FROM "{keep_tbl}" '
+                f'ORDER BY "{keep_col}" DESC, "{ref_col}" DESC LIMIT ?', (keep_n,))}
         else:
             recent_values = set()
+        legacy_values = ({row[0] for row in con.execute(
+            f'SELECT DISTINCT "{keep_col}" FROM "{keep_tbl}"')}
+            if keep_tbl and not key_col else set())
 
         size_before = db_path.stat().st_size
         rows_scanned = 0
         rows_stripped = 0
+        rows_kept_recent = 0
         bytes_before = 0
         bytes_after = 0
-        cursor = con.execute(
-            f'SELECT rowid, "{blob_column}" FROM "{table}"'
-        )
+        if key_col:
+            query = (f'SELECT w.rowid, w."{blob_column}", p."{key_col}" '
+                     f'FROM "{table}" w LEFT JOIN "{keep_tbl}" p '
+                     f'ON w."{row_col}" = p."{key_col}"')
+        else:
+            query = f'SELECT rowid, "{blob_column}", NULL FROM "{table}"'
+        cursor = con.execute(query)
         updated: list[tuple] = []
         while True:
             batch = cursor.fetchmany(500)
             if not batch:
                 break
-            for rid, blob in batch:
+            for rid, blob, linked_key in batch:
                 rows_scanned += 1
                 if blob is None:
                     continue
@@ -1631,8 +1681,15 @@ def slim(
                 before = len(blob)
                 new_obj = {k: v for k, v in obj.items() if k not in keys}
                 if len(new_obj) != len(obj):
-                    if keep_tbl and str(obj.get(keep_col)) in recent_values:
-                        continue
+                    if keep_tbl:
+                        reference = linked_key if key_col else obj.get(keep_col)
+                        if reference is None or not isinstance(reference, (str, int, float)):
+                            raise SystemExit("keep_recent cannot resolve row reference; configure key_column and row_column")
+                        if not key_col and reference not in legacy_values:
+                            raise SystemExit("keep_recent JSON reference not found in keep table")
+                        if reference in recent_values:
+                            rows_kept_recent += 1
+                            continue
                     bytes_before += before
                     bytes_after += len(json.dumps(new_obj, ensure_ascii=False))
                     rows_stripped += 1
@@ -1640,7 +1697,7 @@ def slim(
                         updated.append((json.dumps(new_obj, ensure_ascii=False), rid))
         if yes and updated:
             con.executemany(f'UPDATE "{table}" SET "{blob_column}" = ? WHERE rowid = ?', updated)
-            con.commit()
+        con.commit()  # end the read/plan/write transaction before optional VACUUM
         reclaimed = max(0, bytes_before - bytes_after)
         vacuum_done = False
         if yes and reclaimed / 1e9 >= vmin:
@@ -1657,7 +1714,10 @@ def slim(
         "table": table,
         "blob_column": blob_column,
         "strip_keys": keys,
-        "keep_recent": {"table": keep_tbl, "column": keep_col, "n": keep_n} if keep_tbl else None,
+        "keep_recent": {"table": keep_tbl, "column": keep_col, "n": keep_n,
+                        "key_column": key_col, "row_column": row_col} if keep_tbl else None,
+        "protected_keys": protected,
+        "rows_kept_recent": rows_kept_recent,
         "rows_scanned": rows_scanned,
         "rows_stripped": rows_stripped,
         "size_before_bytes": size_before,

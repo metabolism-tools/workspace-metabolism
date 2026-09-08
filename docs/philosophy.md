@@ -142,3 +142,9 @@ and improved independently.
 If you disagree with the framing, or if you have a better metaphor, open an
 Issue. The goal is not to win the metaphor; it is to make workspace lifecycle
 governance concrete, honest, and usable.
+
+
+Maintenance boundary update (0.5.2): `slim` supports explicit relational
+retention and policy-protected top-level keys. Unresolved references stop the
+plan before mutation. This strengthens an execution condition; it does not
+prove that all consumer evidence is known or that business recovery occurred.

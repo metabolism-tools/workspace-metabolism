@@ -298,3 +298,9 @@ framing, or have a better metaphor, open an Issue. The goal is not to be
 right, but to start a conversation about what happens to the byproducts of our
 new coding habits — and to give the workspace a digestion system instead of a
 funeral pyre.
+
+
+Maintenance boundary update (0.5.2): `slim` supports explicit relational
+retention and policy-protected top-level keys. Unresolved references stop the
+plan before mutation. This strengthens an execution condition; it does not
+prove that all consumer evidence is known or that business recovery occurred.
