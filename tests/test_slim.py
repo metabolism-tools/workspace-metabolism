@@ -41,7 +41,7 @@ def _policy(tmp_path: Path) -> Path:
                 "table": "work_units",
                 "blob_column": "payload_json",
                 "strip_keys": ["factor_observations"],
-                "keep_recent": {"table": "epochs", "column": "created_at", "n": 2},
+                "keep_recent": {"table": "epochs", "column": "created_at", "n": 2, "key_column": "epoch_id", "row_column": "epoch_id"},
                 "vacuum_min_gb": 0.0,
             },
         }],

@@ -9,33 +9,68 @@
     "entries"
   ],
   "properties": {
-    "version": { "const": 1 },
-    "$schema": { "type": "string" },
-    "description": { "type": "string" },
+    "version": {
+      "const": 1
+    },
+    "$schema": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
     "ai_governance": {
       "type": "object",
       "properties": {
-        "default": { "enum": ["allow", "deny"] },
-        "protected_paths": { "type": "array", "items": { "type": "string" } },
+        "default": {
+          "enum": [
+            "allow",
+            "deny"
+          ]
+        },
+        "protected_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "tool_patterns": {
           "type": "object",
           "description": "Map MCP tool name patterns to AI actions (glob, e.g. \"fs_*\": \"write\"); used by wm gate.",
-          "additionalProperties": { "enum": ["read", "write", "execute", "delete", "network"] }
+          "additionalProperties": {
+            "enum": [
+              "read",
+              "write",
+              "execute",
+              "delete",
+              "network"
+            ]
+          }
         },
         "actions": {
           "type": "object",
           "additionalProperties": {
             "type": "object",
             "properties": {
-              "allow": { "type": "boolean" },
-              "requires_preview": { "type": "boolean" },
-              "requires_approval": { "type": "boolean" }
+              "allow": {
+                "type": "boolean"
+              },
+              "requires_preview": {
+                "type": "boolean"
+              },
+              "requires_approval": {
+                "type": "boolean"
+              }
             }
           }
         }
       }
     },
-    "never_clean": { "type": "array", "items": { "type": "string" } },
+    "never_clean": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "defaults": {
       "type": "object",
       "properties": {
@@ -150,12 +185,41 @@
                   "n": {
                     "type": "integer",
                     "minimum": 1
+                  },
+                  "key_column": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "row_column": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
                   }
+                },
+                "required": [
+                  "table",
+                  "column",
+                  "n"
+                ],
+                "dependentRequired": {
+                  "key_column": [
+                    "row_column"
+                  ],
+                  "row_column": [
+                    "key_column"
+                  ]
                 }
               },
               "vacuum_min_gb": {
                 "type": "number",
                 "minimum": 0
+              },
+              "protected_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
               }
             }
           }
