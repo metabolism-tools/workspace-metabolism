@@ -1,14 +1,10 @@
-import importlib.util
 import json
 from pathlib import Path
 
 import pytest
 from workspace_metabolism.core import journal_append
 
-spec = importlib.util.spec_from_file_location(
-    "case_evidence", Path(__file__).parents[1] / "tools/summarize_case_evidence.py")
-module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
+import workspace_metabolism.evidence as module
 
 
 def test_real_writer_outcomes_and_privacy(tmp_path):
@@ -100,3 +96,16 @@ def test_timestamp_gaps_do_not_create_temporal_link(tmp_path):
     result = module.observe_followup(report, path)
     assert result["relation"] == "unknown"
     assert result["reported_ok"] is False
+
+
+def test_installed_cli_readonly_without_registry(tmp_path, capsys):
+    from workspace_metabolism.cli import main
+    state = tmp_path / "state"
+    journal_append(state, "slim", "test", status="ok")
+    before = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert main(["--root", str(tmp_path), "--state-dir", "state", "evidence"]) == 0
+    assert json.loads(capsys.readouterr().out)["entries"] == 1
+    after = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert before == after
+    assert main(["--state-dir", str(tmp_path / "missing"), "evidence"]) == 1
+    assert json.loads(capsys.readouterr().out)["evidence_status"] == "missing"
