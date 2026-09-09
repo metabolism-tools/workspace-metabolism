@@ -6,6 +6,16 @@
 
 在包含 `src/workspace_metabolism/changes.py` 的 WM 源码目录中运行：
 
+首次试用可以获取独立预览分支（在一个新的目录中）：
+
+```powershell
+git clone --branch codex/wm-governed-change-preview --single-branch https://github.com/metabolism-tools/workspace-metabolism.git wm-change-preview
+cd wm-change-preview
+python examples/governed_change_demo.py
+```
+
+已有该分支源码时，只需：
+
 ```powershell
 python examples/governed_change_demo.py
 ```
