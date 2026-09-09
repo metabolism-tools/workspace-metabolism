@@ -194,6 +194,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("mcp", help="run the MCP stdio server so agents can run micro-metabolism")
 
+    p_change = sub.add_parser("change", help="experimental review/apply/restore for selected existing files")
+    change_sub = p_change.add_subparsers(dest="change_command", required=True)
+    prepare = change_sub.add_parser("prepare", help="copy selected files to a separate draft")
+    prepare.add_argument("--file", action="append", required=True, dest="files")
+    prepare.add_argument("--protect", action="append", default=[], dest="protected")
+    prepare.add_argument("--goal", required=True)
+    prepare.add_argument("--acceptance", required=True)
+    for step in ("review", "apply", "restore"):
+        command = change_sub.add_parser(step)
+        command.add_argument("change_id")
+        if step == "apply":
+            command.add_argument("--approve", required=True, dest="approval")
+            command.add_argument("--approver", required=True)
+            command.add_argument("--acceptance-evidence", required=True, dest="acceptance")
+
     return parser
 
 
@@ -220,6 +235,19 @@ def main(argv: list[str] | None = None) -> int:
     window = parse_window(args.protected_window)
     operator = "auto" if getattr(args, "auto", False) else "manual"
     registry_path = _resolve_registry(root, args.registry)
+
+    if args.command == "change":
+        from .changes import run_change
+
+        keys = ("change_id", "files", "protected", "goal", "acceptance", "approval", "approver")
+        try:
+            result = run_change(root, state_dir, registry_path, args.change_command,
+                                **{key: getattr(args, key) for key in keys if hasattr(args, key)})
+        except (ValueError, OSError) as exc:
+            print(f"change blocked: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
 
     if args.command == "init":
         target = root / args.file
