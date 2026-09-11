@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, mkdtemp, rm, realpath } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -60,7 +60,7 @@ test('generated patch loads the packed plugin from another directory through Cor
     assert.match(await readFile(join(loaded.resourceBase.path, 'references/evaluation.md'), 'utf8'), /Research question/);
     const combined = JSON.parse(execFileSync(process.execPath, [configure, '--with-wm'], {cwd: temporary, encoding: 'utf8'}));
     assert.equal(combined[0].insert.length, 2);
-    assert.equal(combined[0].insert[1].config.cwd, temporary);
+    assert.equal(await realpath(combined[0].insert[1].config.cwd), await realpath(temporary));
     assert.deepEqual(combined[0].insert[1].config.args, ['mcp']);
     assert.throws(() => execFileSync(process.execPath, [configure, '--execute'], {stdio: 'pipe'}));
   } finally {
