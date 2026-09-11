@@ -41,8 +41,9 @@ test('generated patch loads the packed plugin from another directory through Cor
   const packed = JSON.parse(execFileSync(process.execPath, [process.env.npm_execpath, 'pack', '--json'], {
     cwd: packageRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
   }))[0];
-  assert.equal(packed.entryCount, 8);
-  assert.ok(!packed.files.some(file => /node_modules|test\/|agents\/|build\.mjs/.test(file.path)));
+  assert.equal(packed.entryCount, 10);
+  assert.ok(packed.files.some(file => file.path === 'examples/maintenance_cycle.py'));
+  assert.ok(!packed.files.some(file => /node_modules|test\/|agents\/|build\.mjs|__pycache__|\.pyc$/.test(file.path)));
   const temporary = await mkdtemp(join(tmpdir(), 'wm-dsh-plugin-'));
   const ctx = new Context();
   try {

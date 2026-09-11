@@ -1,6 +1,6 @@
 {
   "name": "@metabolism-tools/dsh-metabolic-maintenance",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Evidence-aware workflow maintenance skill for DeepSeek Harness",
   "type": "module",
   "main": "index.js",
@@ -10,6 +10,8 @@
     "configure.mjs",
     "skill.json",
     "skills",
+    "examples/README.md",
+    "examples/maintenance_cycle.py",
     "README.md",
     "LICENSE"
   ],
