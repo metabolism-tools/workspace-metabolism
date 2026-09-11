@@ -35,6 +35,25 @@
 
 开发阶段验收（2026-09-11，`0.1.3-dev.0`）：Windows / Python 3.14 下 206 项测试通过，其中新增观察示例 16 项；3 项 DSH/Cordis 集成检查通过，包含从实际打包文件解压、加载全部参考文件，并运行示例与随包记录逐项比较。技能格式和修改文档的相对链接检查通过。其他操作系统的检查已加入 CI，本地结果不能代替远端 CI 结果。该阶段没有发布 Release、上传 npm 或替换生产插件。后续正式发行与远端验收以 [v0.1.3 Release](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/dsh-metabolic-maintenance-v0.1.3) 的记录为准；开发阶段与发行验收分开保留。
 
+## 正式发行验收
+
+2026-09-11，DSH Metabolic Maintenance v0.1.3 已通过 GitHub Release 发布。标签 `dsh-metabolic-maintenance-v0.1.3` 对应提交 `d92f974936251b21fe19ef30f9c793e5e4ef86a0`；该提交已进入主分支。此处补充的是发布后的验收记录，不是待合入的新运行功能。
+
+| 验收范围 | 已确认结果与来源 |
+| --- | --- |
+| Python 回归 | [6 组检查通过](https://github.com/metabolism-tools/workspace-metabolism/actions/runs/34605060109)：Windows、Linux、macOS，分别使用 Python 3.11 和 3.12 |
+| 插件分发 | [3 组检查通过](https://github.com/metabolism-tools/workspace-metabolism/actions/runs/34605060154)：三种系统下真实 Cordis 加载、随包参考文件访问、解压后的示例与记录比较 |
+| 安全扫描 | [CodeQL 检查通过](https://github.com/metabolism-tools/workspace-metabolism/actions/runs/34605060058)；该扫描不证明系统不存在所有安全问题 |
+| 正式下载物 | `.tgz` 大小 21,642 字节，包含 15 个文件；从 Release 重新下载后校验值一致，解压后的示例复现随包 JSON，配置生成器在另一工作目录正常运行 |
+
+发布包 `metabolism-tools-dsh-metabolic-maintenance-0.1.3.tgz` 的 SHA-256：
+
+```text
+9b8ae86cbfced1efdcccbae25812ca8ede5b83402b6aa663519ff81ceb83838f
+```
+
+校验文件随 Release 提供。该校验值用于核对下载内容，不单独认证来源或业务结果。发布阶段未上传 npm、替换既有 DSH 安装或启动生产维护；WM Python 版本未随插件升级。自然调度可靠性、人工监督密度和 token 收益仍需生产观察，这些发布检查不能代替效果研究。
+
 ## 如何继续验证价值
 
 使用[观察记录表](../../skills/metabolic-maintenance/references/observation-record.md)，从观察机制启用时间开始统计所有同类到期事项，包括遗漏、迟到、失败和无变更。自然事件与故障注入分开；历史未布置观察的区间不补造成功或失败。
