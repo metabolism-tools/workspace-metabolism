@@ -1,0 +1,4 @@
+interface:
+  display_name: "Metabolic Maintenance"
+  short_description: "Evidence-aware maintenance with verified downstream recovery"
+  default_prompt: "Use $metabolic-maintenance to assess and carry out authorized maintenance, then verify downstream work and record unresolved evidence."
