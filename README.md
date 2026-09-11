@@ -19,6 +19,13 @@ audit, reversible cleanup, rollback, and hash-chained verification. Python
 
 ## The problem
 
+**Experimental source preview:** [reviewed local changes](docs/research/change-workflow-pilot.md)
+adds prepare → review → apply → restore for selected existing files. The
+[disposable governance demo](examples/governed-change-demo.md) runs a real consumer
+on synthetic data and distinguishes accepted output, failure with recovery, and
+missing verification. This preview is not a published package release or a
+production authorization mechanism.
+
 AI coding agents (Claude Code, Codex, DeepSeek Harness, …) share one thing —
 your workspace — and they leave a trail of scratch files, caches and staged
 directories behind. Nobody owns the cleanup: deleting by hand is irreversible,
