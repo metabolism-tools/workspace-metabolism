@@ -15,6 +15,10 @@ build/
 /workspace-metabolism-extract2/
 /workspace-metabolism-review/
 
+# unpublished manuscripts — never commit before publication
+# (submission packages, anonymity-sensitive drafts, endorser/reviewer correspondence)
+docs/paper/
+
 # secrets — never commit
 pypi-token.txt
 /Agentic Metabolic Engineering/
