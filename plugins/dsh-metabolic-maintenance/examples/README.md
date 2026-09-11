@@ -51,7 +51,7 @@ Each `evidence.json` contains the actual WM calls and responses and available co
 
 ## Observe maintenance that never completes
 
-The source development version also includes a separate standard-library example:
+Version 0.1.3 also includes a separate standard-library example:
 
 ```sh
 python /path/to/package/examples/maintenance_observation.py

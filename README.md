@@ -403,7 +403,7 @@ DSH-style workspaces (`.agents/notes`, scratch plugins, generated artifacts):
 The optional [Metabolic Maintenance skill plugin](plugins/dsh-metabolic-maintenance/README.md)
 adds consequence-aware maintenance rules and downstream recovery verification to
 DSH's skill catalog. It loads instructions on demand and can pair with the MCP
-tools above. [Download the plugin](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/dsh-metabolic-maintenance-v0.1.2).
+tools above. [Download the plugin](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/dsh-metabolic-maintenance-v0.1.3).
 
 ## Safety model
 

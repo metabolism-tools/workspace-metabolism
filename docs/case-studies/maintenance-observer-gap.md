@@ -33,7 +33,7 @@
 
 复现入口：[维护观察示例](../../plugins/dsh-metabolic-maintenance/examples/README.md#observe-maintenance-that-never-completes)。新例子不调用 WM 或 DSH，也不访问网络；已有相邻例子单独演示 WM 的真实清理和回滚。两者的验证边界分别说明。
 
-本轮源码验收（2026-09-11）：Windows / Python 3.14 下 206 项测试通过，其中新增观察示例 16 项；3 项 DSH/Cordis 集成检查通过，包含从实际打包文件解压、加载全部参考文件，并运行示例与随包记录逐项比较。技能格式和修改文档的相对链接检查通过。其他操作系统的检查已加入 CI，本地结果不能代替远端 CI 结果。插件源码版本为 `0.1.3-dev.0`，本轮没有发布 Release、上传 npm 或替换生产插件。
+开发阶段验收（2026-09-11，`0.1.3-dev.0`）：Windows / Python 3.14 下 206 项测试通过，其中新增观察示例 16 项；3 项 DSH/Cordis 集成检查通过，包含从实际打包文件解压、加载全部参考文件，并运行示例与随包记录逐项比较。技能格式和修改文档的相对链接检查通过。其他操作系统的检查已加入 CI，本地结果不能代替远端 CI 结果。该阶段没有发布 Release、上传 npm 或替换生产插件。后续正式发行与远端验收以 [v0.1.3 Release](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/dsh-metabolic-maintenance-v0.1.3) 的记录为准；开发阶段与发行验收分开保留。
 
 ## 如何继续验证价值
 
