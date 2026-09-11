@@ -1,5 +1,11 @@
 # DeepSeek Harness integration
 
+For the **Metabolic Maintenance skill plugin**, including a downloadable package
+and a combined skill + WM configuration, see
+[plugins/dsh-metabolic-maintenance](../plugins/dsh-metabolic-maintenance/README.md).
+The skill supplies maintenance and downstream-verification rules; the MCP bridge
+below supplies executable WM tools. Neither is an automatic authorization system.
+
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) is an
 agent harness where *everything is a plugin*, built on the
 [Cordis](https://github.com/cordiverse/cordis) plugin framework. Its official

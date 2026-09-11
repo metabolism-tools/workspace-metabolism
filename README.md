@@ -397,6 +397,11 @@ Full walkthrough (project `cordis.yml` vs `--patch` overlay, pinned
 DSH-style workspaces (`.agents/notes`, scratch plugins, generated artifacts):
 [examples/registry.dsh.example.json](examples/registry.dsh.example.json).
 
+The optional [Metabolic Maintenance skill plugin](plugins/dsh-metabolic-maintenance/README.md)
+adds consequence-aware maintenance rules and downstream recovery verification to
+DSH's skill catalog. It loads instructions on demand and can pair with the MCP
+tools above. [Download the plugin](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/dsh-metabolic-maintenance-v0.1.0).
+
 ## Safety model
 
 - `clean` is dry-run unless `--yes` is given.
