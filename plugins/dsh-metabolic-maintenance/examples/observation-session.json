@@ -1,0 +1,126 @@
+{
+  "synthetic_fixture": true,
+  "time_source": "fixed_replay",
+  "llm_executed": false,
+  "scheduler_executed": false,
+  "network_used": false,
+  "wm_operations": false,
+  "supervision_minutes": null,
+  "token_savings": null,
+  "scenarios": {
+    "startup_failure": {
+      "obligation": "missing_evidence",
+      "evidence": "missing",
+      "deadline_missed": true,
+      "trigger": "unknown",
+      "consumer": "not_checked",
+      "recovery": "not_assessed",
+      "notification": "not_observed",
+      "evidence_trust": "reported_not_authenticated",
+      "authorizes_execution": false,
+      "natural_trigger_verified": false,
+      "supervision_benefit": "not_established",
+      "token_benefit": "not_established",
+      "worker_exit": 1,
+      "outcome": "missing_completion_evidence"
+    },
+    "stale_report": {
+      "obligation": "unknown",
+      "evidence": "expired",
+      "deadline_missed": false,
+      "trigger": "manual",
+      "consumer": "not_checked",
+      "recovery": "not_assessed",
+      "notification": "not_observed",
+      "evidence_trust": "reported_not_authenticated",
+      "authorizes_execution": false,
+      "natural_trigger_verified": false,
+      "supervision_benefit": "not_established",
+      "token_benefit": "not_established",
+      "artifact_hash_matches": true,
+      "outcome": "stale_report_unresolved"
+    },
+    "notification_retry": {
+      "outcome": "failed_then_sent_then_suppressed",
+      "statuses": [
+        "failed",
+        "sent",
+        "suppressed_after_sent"
+      ],
+      "sender_calls": 2,
+      "incident_resolved": false,
+      "notification": "sent",
+      "delivery_acknowledged": false,
+      "transport": "in_memory_stub"
+    },
+    "incomplete_recovery": {
+      "obligation": "completed",
+      "evidence": "reported_current",
+      "deadline_missed": false,
+      "trigger": "manual",
+      "consumer": "rejected",
+      "recovery": "files_restored",
+      "notification": "not_observed",
+      "evidence_trust": "reported_not_authenticated",
+      "authorizes_execution": false,
+      "natural_trigger_verified": false,
+      "supervision_benefit": "not_established",
+      "token_benefit": "not_established",
+      "outcome": "restored_files_consumer_rejected",
+      "before": {
+        "total": 18,
+        "accepted": true
+      },
+      "after": {
+        "total": 36,
+        "accepted": false
+      },
+      "restored_bytes_match": true
+    },
+    "normal_no_change": {
+      "obligation": "completed",
+      "evidence": "reported_current",
+      "deadline_missed": false,
+      "trigger": "manual",
+      "consumer": "accepted",
+      "recovery": "not_assessed",
+      "notification": "not_observed",
+      "evidence_trust": "reported_not_authenticated",
+      "authorizes_execution": false,
+      "natural_trigger_verified": false,
+      "supervision_benefit": "not_established",
+      "token_benefit": "not_established",
+      "outcome": "no_change_consumer_accepted",
+      "execution": "no_change",
+      "reclaimed_bytes": 0
+    },
+    "not_due": {
+      "obligation": "not_due",
+      "evidence": "missing",
+      "deadline_missed": null,
+      "trigger": "unknown",
+      "consumer": "not_checked",
+      "recovery": "not_assessed",
+      "notification": "not_observed",
+      "evidence_trust": "reported_not_authenticated",
+      "authorizes_execution": false,
+      "natural_trigger_verified": false,
+      "supervision_benefit": "not_established",
+      "token_benefit": "not_established"
+    },
+    "before_enrollment": {
+      "obligation": "uninstrumented_history",
+      "evidence": "missing",
+      "deadline_missed": null,
+      "trigger": "unknown",
+      "consumer": "not_checked",
+      "recovery": "not_assessed",
+      "notification": "not_observed",
+      "evidence_trust": "reported_not_authenticated",
+      "authorizes_execution": false,
+      "natural_trigger_verified": false,
+      "supervision_benefit": "not_established",
+      "token_benefit": "not_established"
+    }
+  }
+}

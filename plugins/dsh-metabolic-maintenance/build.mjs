@@ -10,7 +10,8 @@ if (!match || match[1] !== 'metabolic-maintenance') {
 }
 const skill = { name: match[1], description: JSON.parse(match[2]), content: match[3].trim() };
 await mkdir(new URL(relative + 'references/', target), { recursive: true });
-for (const file of ['SKILL.md', 'references/evaluation.md']) {
+for (const file of ['SKILL.md', 'references/evaluation.md',
+  'references/maintenance-observation.md', 'references/observation-record.md']) {
   await copyFile(new URL(relative + file, root), new URL(relative + file, target));
 }
 await copyFile(new URL('LICENSE', root), new URL('LICENSE', target));

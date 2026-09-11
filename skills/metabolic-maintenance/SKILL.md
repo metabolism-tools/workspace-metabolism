@@ -22,6 +22,7 @@ Use existing project policies, permissions, and tooling. Keep the process propor
 
 - Inspect the actual target, why it qualifies, active writers/readers, and applicable retention rules. Distinguish observations from assumptions.
 - Identify the smallest useful scope and who consumes it. For regenerable caches, establish the regeneration path; for shared evidence, identify the actual downstream workflow and its acceptance condition.
+- When assessing recurring maintenance, establish what was due even if the worker left no record. Read [maintenance-observation.md](references/maintenance-observation.md) for missing runs, stale reports, deployment verification, or alert handling; finish with a bounded observation or an explicit coverage gap.
 - Reuse authorization already given. This skill grants no permission, requires no extra blanket approval, and does not override project restrictions. If a consequential choice remains outside authorized scope, prepare a concrete preview and recovery proposal before requesting that specific decision.
 
 ### Prepare and execute
@@ -37,6 +38,7 @@ Use existing project policies, permissions, and tooling. Keep the process propor
 - If a check fails, contain further dependent changes. Use the established recovery path within scope, then recheck the affected consumer. File restoration alone does not close the incident.
 - Record the action, evidence locations, checks performed, unresolved gaps, and any human decision or rescue needed. Reuse the project's incident/task record across retries; silence or a new report must not erase an unresolved failure.
 - Report a precise outcome: no action due, preview only, held for a named reason, changed and verified for the stated scope, recovered and verified, or unresolved. A successful local check cannot establish whole-system correctness.
+- Keep execution, evidence freshness, consumer acceptance, and notification status separate. A manual run does not establish natural scheduling; a sent alert does not close the underlying failure.
 
 ## Optional WM integration
 

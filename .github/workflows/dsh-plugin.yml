@@ -2,9 +2,9 @@ name: DSH maintenance plugin
 
 on:
   push:
-    paths: ['plugins/dsh-metabolic-maintenance/**', 'skills/metabolic-maintenance/**', '.github/workflows/dsh-plugin.yml']
+    paths: ['plugins/dsh-metabolic-maintenance/**', 'skills/metabolic-maintenance/**', 'tests/test_maintenance_observation_demo.py', '.github/workflows/dsh-plugin.yml']
   pull_request:
-    paths: ['plugins/dsh-metabolic-maintenance/**', 'skills/metabolic-maintenance/**', '.github/workflows/dsh-plugin.yml']
+    paths: ['plugins/dsh-metabolic-maintenance/**', 'skills/metabolic-maintenance/**', 'tests/test_maintenance_observation_demo.py', '.github/workflows/dsh-plugin.yml']
 
 jobs:
   plugin:
@@ -25,5 +25,10 @@ jobs:
           cache-dependency-path: plugins/dsh-metabolic-maintenance/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm run build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - run: npm test
+      - run: python -m pip install pytest
+      - run: python -m pytest ../../tests/test_maintenance_observation_demo.py -q
       - run: npm pack

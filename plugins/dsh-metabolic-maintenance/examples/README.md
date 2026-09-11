@@ -49,6 +49,29 @@ missing_consumer: held_missing_consumer
 
 Each `evidence.json` contains the actual WM calls and responses and available consumer results. These files include temporary local paths; sanitize them before public sharing. `before.json` preserves pre-action acceptance evidence. Baseline evidence and recovery material are outside the cleanup target.
 
+## Observe maintenance that never completes
+
+The source development version also includes a separate standard-library example:
+
+```sh
+python /path/to/package/examples/maintenance_observation.py
+```
+
+This example requires Python 3.11+ but no installed WM. It creates and removes only its own temporary fixture. JSON is printed to the terminal; [observation-session.json](observation-session.json) is an actual captured run with fixed synthetic January timestamps, not production history.
+
+| Scenario | Actual fixture operation | Expected interpretation |
+| --- | --- | --- |
+| Startup failure | An isolated Python subprocess fails to import before producing any receipt | An independently supplied due slot still exposes missing completion evidence |
+| Stale report | A real file remains unchanged and its hash matches, but the supplied evidence window has expired | Report exists; current health is unknown |
+| Notification retry | An in-memory sender deliberately fails once, then succeeds; a third call is suppressed | Failed sends remain retryable; successful send does not resolve the incident |
+| Incomplete recovery | Input bytes are restored, but a changed calculation rule remains; the real consumer returns 36 instead of 18 | File recovery passes; consumer acceptance fails |
+| Normal no change | Current supplied receipt plus a real consumer returning 18 | No change can be legitimate; reclaimed bytes are zero |
+| Not due / before enrollment | Explicit replay times with no receipt | Not yet due and uninstrumented history are separate from missing post-enrollment evidence |
+
+The small `evaluate_obligation` function is an illustrative read-only association of supplied slot/receipt fields. It does not read scheduler registrations, verify hashes, authenticate receipts, inspect production artifacts, execute recovery or enforce permissions. Artifact and consumer checks in the scenarios are separate real fixture operations. All receipt timestamps and trigger labels are supplied replay data; natural scheduling remains unverified. The in-memory sender is not a delivery integration, persistent queue, restart-safe deduplicator or retry daemon.
+
+Use [maintenance-observation.md](../skills/metabolic-maintenance/references/maintenance-observation.md) for adapter responsibilities and the [observation record](../skills/metabolic-maintenance/references/observation-record.md) for real cases. Those relative references are included by the plugin build. Existing `tools/evaluate_maintenance_cycle.py` states and WM CLI behavior are unchanged by this example.
+
 ## What this proves—and what it does not
 
 The example makes the difference between tool completion and downstream acceptance observable, and demonstrates WM cleanup and recovery with small synthetic data. It provides no natural maintenance opportunity, autonomous-model result, ordinary-script comparison, or measured reduction in human supervision or tokens. Human time and token savings remain unknown. Those claims require separate real-workflow trials under the [evaluation guide](https://github.com/metabolism-tools/workspace-metabolism/blob/main/skills/metabolic-maintenance/references/evaluation.md).

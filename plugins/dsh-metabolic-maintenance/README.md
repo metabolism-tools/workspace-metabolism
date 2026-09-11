@@ -29,6 +29,8 @@ Checks should be proportional. These rules do not require repeated approval for 
 
 [Run the isolated maintenance cycle](examples/README.md) or [view its recorded terminal output](examples/terminal-session.txt): assess a due scratch report, preview and execute WM cleanup, check a real file-reading consumer, and recover a deliberately broken fixture. It also demonstrates holding a cycle when its consumer is unknown. The example separates scripted execution from the DSH agent's proposed role; it is not evidence of autonomous model performance.
 
+The source development version adds [maintenance observation examples](examples/README.md#observe-maintenance-that-never-completes): startup failure, stale evidence, notification retry, incomplete recovery, and legitimate no-change/not-due outcomes. Detailed observation instructions and a case record are loaded only when needed. These additions are not included in the existing v0.1.2 release linked below; building this source packages them. No scheduler, notification service or new WM CLI command is installed.
+
 ## Install from GitHub Release
 
 Download the plugin `.tgz` from the [dsh-metabolic-maintenance-v0.1.2 release](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/dsh-metabolic-maintenance-v0.1.2). Extract it into a directory you control; npm archives contain a `package/` directory. Keep that directory intact. No npm account, build step, or plugin dependency installation is required to load the extracted plugin. The optional runnable example separately requires Python and WM.
@@ -68,7 +70,7 @@ The skill can also use existing scripts. It does not require experimental `wm ch
 
 ## Build and verify from source
 
-From `plugins/dsh-metabolic-maintenance` in the WM repository:
+With Node 22+ and Python 3.11+, from `plugins/dsh-metabolic-maintenance` in the WM repository:
 
 ```sh
 npm ci --ignore-scripts

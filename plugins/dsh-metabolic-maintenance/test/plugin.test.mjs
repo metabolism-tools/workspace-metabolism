@@ -27,6 +27,8 @@ test('real DSH registry discovers, loads and removes the packaged skill', async 
     assert.equal(loaded.content, canonical.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '').trim());
     const reference = await readFile(join(loaded.resourceBase.path, 'references/evaluation.md'), 'utf8');
     assert.match(reference, /Missing acceptance is unknown/);
+    assert.match(await readFile(join(loaded.resourceBase.path, 'references/maintenance-observation.md'), 'utf8'), /missing completion evidence/);
+    assert.match(await readFile(join(loaded.resourceBase.path, 'references/observation-record.md'), 'utf8'), /Discovery delay/);
     assert.match(renderSkillContent(loaded), /<skill_content name="metabolic-maintenance">/);
     assert.equal(await ctx.skills.get('unknown-skill'), undefined);
     await fork.dispose();
@@ -41,13 +43,20 @@ test('generated patch loads the packed plugin from another directory through Cor
   const packed = JSON.parse(execFileSync(process.execPath, [process.env.npm_execpath, 'pack', '--json'], {
     cwd: packageRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
   }))[0];
-  assert.equal(packed.entryCount, 11);
+  assert.equal(packed.entryCount, 15);
   assert.ok(packed.files.some(file => file.path === 'examples/maintenance_cycle.py'));
+  assert.ok(packed.files.some(file => file.path === 'examples/maintenance_observation.py'));
+  assert.ok(packed.files.some(file => file.path === 'examples/observation-session.json'));
   assert.ok(!packed.files.some(file => /node_modules|test\/|agents\/|build\.mjs|__pycache__|\.pyc$/.test(file.path)));
   const temporary = await mkdtemp(join(tmpdir(), 'wm-dsh-plugin-'));
   const ctx = new Context();
   try {
     execFileSync('tar', ['-xzf', join(packageRoot, packed.filename), '-C', temporary]);
+    const observed = JSON.parse(execFileSync(process.env.PYTHON || 'python',
+      ['-I', join(temporary, 'package', 'examples', 'maintenance_observation.py')],
+      {cwd: tmpdir(), encoding: 'utf8', timeout: 30000}));
+    const recorded = JSON.parse(await readFile(join(temporary, 'package', 'examples', 'observation-session.json'), 'utf8'));
+    assert.deepEqual(observed, recorded);
     const configure = join(temporary, 'package', 'configure.mjs');
     const patch = JSON.parse(execFileSync(process.execPath, [configure], {cwd: tmpdir(), encoding: 'utf8'}));
     assert.equal(patch[0].insert.length, 1);
@@ -59,6 +68,8 @@ test('generated patch loads the packed plugin from another directory through Cor
     const loaded = await ctx.skills.get('metabolic-maintenance');
     assert.equal(loaded.provider, 'metabolism-tools-maintenance');
     assert.match(await readFile(join(loaded.resourceBase.path, 'references/evaluation.md'), 'utf8'), /Research question/);
+    assert.match(await readFile(join(loaded.resourceBase.path, 'references/maintenance-observation.md'), 'utf8'), /missing completion evidence/);
+    assert.match(await readFile(join(loaded.resourceBase.path, 'references/observation-record.md'), 'utf8'), /Discovery delay/);
     const combined = JSON.parse(execFileSync(process.execPath, [configure, '--with-wm'], {cwd: temporary, encoding: 'utf8'}));
     assert.equal(combined[0].insert.length, 2);
     assert.equal(await realpath(combined[0].insert[1].config.cwd), await realpath(temporary));

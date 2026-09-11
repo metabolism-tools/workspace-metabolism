@@ -25,8 +25,12 @@ Freeze input identity, acceptance conditions, versions, and the comparison proce
 | Time-based density | If useful, supervision minutes per 10 active agent-work hours | State concurrent-agent accounting; exclude idle waiting. Longer runtime can dilute this ratio without benefit. |
 | Total cost | Compute/token usage, execution, retries, verification, recovery, and measured human effort | Missing usage or time remains unknown. Do not infer token savings from fewer messages. |
 | Interruptions | Necessary and unnecessary alerts, missed escalations, unresolved incidents | Suppressed alerts alone are not reduced supervision. |
+| Obligation coverage | All due slots since enrollment, including missing, late, held and failed work; observer outages | Worker logs alone omit work that never started. Uninstrumented history stays separate. |
+| Detection and stale display | Discovery delay and duration a stale/failed state was displayed as healthy, with observed time bounds | Report unknown onset as a bound or unknown, not a precise invented duration. |
 
 Record raw counts and time alongside ratios. Distinguish zero measured activity from unobserved activity. Keep failure and no-action cycles in the record; no-action is legitimate but not a completed maintenance benefit.
+
+Use the [observation record](observation-record.md) to retain these fields for a real case. Keep manual trigger tests, observed natural scheduling, scripted fault injection, and autonomous-model trials separate. Successful alert delivery and successful downstream recovery are different outcomes.
 
 ## State the conclusion conservatively
 
