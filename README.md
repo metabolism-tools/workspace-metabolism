@@ -40,8 +40,11 @@ wm doctor --residue --apply-policy   # adopt the suggestions as policy entries (
 wm audit                             # read-only checkup with health score
 ```
 
-**Status:** v0.5.0. Published on PyPI; rated **Glama quality A (92/100)** —
-above most official MCP servers ([score](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism/score)).
+**Distribution status (checked 2026-09-11):** [GitHub release v0.5.2](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.5.2);
+[PyPI v0.5.1](https://pypi.org/project/workspace-metabolism/0.5.1/).
+The v0.5.2 features below require the GitHub release/source; PyPI does not yet provide that version.
+See the [Glama tool-definition assessment](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism/score)
+for interface quality; it does not establish production reliability or lower supervision.
 Honest: no large production deployments yet, and the policy schema may shift
 before v1.0. Early adopters are welcome to break it on weird directory
 structures.
@@ -400,7 +403,7 @@ DSH-style workspaces (`.agents/notes`, scratch plugins, generated artifacts):
 The optional [Metabolic Maintenance skill plugin](plugins/dsh-metabolic-maintenance/README.md)
 adds consequence-aware maintenance rules and downstream recovery verification to
 DSH's skill catalog. It loads instructions on demand and can pair with the MCP
-tools above. [Download the plugin](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/dsh-metabolic-maintenance-v0.1.1).
+tools above. [Download the plugin](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/dsh-metabolic-maintenance-v0.1.2).
 
 ## Safety model
 

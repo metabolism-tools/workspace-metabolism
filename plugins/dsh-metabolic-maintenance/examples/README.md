@@ -7,11 +7,13 @@ This runnable example uses WM's real MCP request handler and real file operation
 With Python 3.11 or newer, in an environment where you want to install WM:
 
 ```sh
-python -m pip install workspace-metabolism==0.5.2
+python -m pip install workspace-metabolism==0.5.1
 python /path/to/package/examples/maintenance_cycle.py
 ```
 
 Or install WM from this repository and run the same file from `plugins/dsh-metabolic-maintenance/examples/maintenance_cycle.py`.
+
+Version check on 2026-09-11: PyPI provides WM **0.5.1**; **0.5.2** is a GitHub release, not an available PyPI version. This example was also run successfully using the actual PyPI 0.5.1 wheel in a fresh environment.
 
 The script accepts no production workspace path. It creates a fresh temporary workspace, state directory, and evidence file for each scenario. It leaves them in place for inspection. No purge or permanent data deletion is invoked.
 
@@ -30,6 +32,8 @@ The script accepts no production workspace path. It creates a fresh temporary wo
 WM does not infer that “18” is the correct answer. That condition belongs to the example's downstream workflow. The skill describes how an agent should organize these checks; it does not enforce their execution.
 
 ## Expected results
+
+[View the captured terminal session](terminal-session.txt). It records an actual scripted run on 2026-09-11 with PyPI WM 0.5.1; only the temporary evidence directory is replaced with a placeholder. It is a synthetic fixture run, not a recording of an autonomous DSH session.
 
 ```text
 normal: maintained_consumer_verified

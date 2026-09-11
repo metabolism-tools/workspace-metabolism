@@ -27,11 +27,11 @@ Checks should be proportional. These rules do not require repeated approval for 
 
 ## End-to-end example
 
-[Run the isolated maintenance cycle](examples/README.md): assess a due scratch report, preview and execute WM cleanup, check a real file-reading consumer, and recover a deliberately broken fixture. It also demonstrates holding a cycle when its consumer is unknown. The example separates scripted execution from the DSH agent's proposed role; it is not evidence of autonomous model performance.
+[Run the isolated maintenance cycle](examples/README.md) or [view its recorded terminal output](examples/terminal-session.txt): assess a due scratch report, preview and execute WM cleanup, check a real file-reading consumer, and recover a deliberately broken fixture. It also demonstrates holding a cycle when its consumer is unknown. The example separates scripted execution from the DSH agent's proposed role; it is not evidence of autonomous model performance.
 
 ## Install from GitHub Release
 
-Download the plugin `.tgz` from the [dsh-metabolic-maintenance-v0.1.1 release](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/dsh-metabolic-maintenance-v0.1.1). Extract it into a directory you control; npm archives contain a `package/` directory. Keep that directory intact. No npm account, build step, or plugin dependency installation is required to load the extracted plugin. The optional runnable example separately requires Python and WM.
+Download the plugin `.tgz` from the [dsh-metabolic-maintenance-v0.1.2 release](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/dsh-metabolic-maintenance-v0.1.2). Extract it into a directory you control; npm archives contain a `package/` directory. Keep that directory intact. No npm account, build step, or plugin dependency installation is required to load the extracted plugin. The optional runnable example separately requires Python and WM.
 
 From the workspace you want to work on, generate a patch with the plugin's absolute location, then launch your existing DSH installation:
 

@@ -1,0 +1,9 @@
+Recorded 2026-09-11 using the PyPI workspace-metabolism 0.5.1 wheel.
+Scripted synthetic fixtures; only the temporary directory is redacted.
+
+$ python examples/maintenance_cycle.py
+Scripted synthetic example; no DSH model or production workspace is used.
+normal: maintained_consumer_verified
+fault_injection: fault_recovered_consumer_verified
+missing_consumer: held_missing_consumer
+Inspect evidence and recovery files: <temporary-evidence-directory>
