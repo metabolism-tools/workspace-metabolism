@@ -131,7 +131,7 @@ def test_slim_policy_directory_entry_matches_db_inside(tmp_path: Path) -> None:
     }), encoding="utf-8")
     import json as _json
     reg_data = _json.loads(reg.read_text(encoding="utf-8"))
-    db = Path("/opt/dongzhu/quant_v10/data/research/work_ledger/marathon.db")
+    db = Path("/opt/example/data/research/work_ledger/app.db")
     policy = db_slim_policy(reg_data, db)
     assert policy["table"] == "research_work_unit", policy
     assert policy["blob_column"] == "checkpoint_json"
