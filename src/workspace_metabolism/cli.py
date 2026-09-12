@@ -92,6 +92,26 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub = parser.add_subparsers(dest="command", required=True)
 
+    p_claim = sub.add_parser("claim", help="experimental cooperative claim-before-write (not an OS sandbox)")
+    claim_sub = p_claim.add_subparsers(dest="claim_command", required=True)
+    begin = claim_sub.add_parser("begin", help="reserve exact files against a clean Git baseline")
+    begin.add_argument("--task", required=True)
+    begin.add_argument("--file", action="append", required=True, dest="files")
+    for name in ("expand", "renew", "resume", "recover", "write", "finish"):
+        command = claim_sub.add_parser(name)
+        command.add_argument("claim_id")
+        if name == "expand":
+            command.add_argument("--file", action="append", required=True, dest="files")
+        if name == "write":
+            command.add_argument("--file", required=True, dest="target_file")
+            command.add_argument("--content-file", type=Path, required=True)
+            command.add_argument("--operation-id", required=True)
+            command.add_argument("--preview", action="store_true")
+            command.add_argument("--approver")
+
+    p_db_check = sub.add_parser("db-check", help="check a registered SQLite resource without creating or repairing it")
+    p_db_check.add_argument("--resource", required=True, help="exact resource_id from the policy, not a path")
+
     p_audit = sub.add_parser("audit", help="read-only health check; writes a report")
     p_audit.add_argument("--dupes", action="store_true", help="also scan for possible duplicates")
     p_audit.add_argument("--auto", action="store_true", help="mark the run as scheduled")
@@ -192,7 +212,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="command that starts the MCP server to wrap, e.g. 'python -m my_server'",
     )
 
-    sub.add_parser("mcp", help="run the MCP stdio server so agents can run micro-metabolism")
+    p_mcp = sub.add_parser("mcp", help="run the MCP stdio server so agents can run micro-metabolism")
+    p_mcp.add_argument("--claim-file", help="opt-in restricted editing profile for one exact maintenance.md path")
 
     return parser
 
@@ -220,6 +241,71 @@ def main(argv: list[str] | None = None) -> int:
     window = parse_window(args.protected_window)
     operator = "auto" if getattr(args, "auto", False) else "manual"
     registry_path = _resolve_registry(root, args.registry)
+
+    if args.command == "claim":
+        from .claim_backend import JsonClaimBackend, git_clean_path
+        from .claim_guard import ClaimGuard
+
+        try:
+            if registry_path is None:
+                raise ValueError("claim writes require an existing governance policy")
+            load_registry(registry_path)
+
+            def authorize(name):
+                if (root / name).resolve() == registry_path:
+                    return False
+                if state_dir.is_relative_to(root) and (root / name).resolve().is_relative_to(state_dir):
+                    return False
+                return govern(root, registry_path, state_dir, "write", paths=[name],
+                              preview=getattr(args, "preview", False),
+                              approver=getattr(args, "approver", None))["allowed"]
+
+            guard = ClaimGuard(root, JsonClaimBackend(root), authorize=authorize,
+                               clean_base=lambda name: git_clean_path(root, name))
+            if args.claim_command == "begin":
+                result = guard.begin(task=args.task, files=args.files)
+            else:
+                session = os.environ.get("WM_CLAIM_SESSION")
+                if not session:
+                    raise ValueError("runner must supply WM_CLAIM_SESSION from its begin response")
+                if args.claim_command == "write":
+                    with args.content_file.open("rb") as stream:
+                        content = stream.read(1024 * 1024 + 1)
+                    result = guard.write(args.claim_id, session, path=args.target_file,
+                                         text=content.decode("utf-8"), operation_id=args.operation_id)
+                elif args.claim_command == "expand":
+                    guard.expand(args.claim_id, session, args.files)
+                    result = {"status": "expanded"}
+                elif args.claim_command == "renew":
+                    guard.renew(args.claim_id, session)
+                    result = {"status": "renewed"}
+                elif args.claim_command == "resume":
+                    result = guard.resume(args.claim_id, session)
+                elif args.claim_command == "recover":
+                    result = guard.recover(args.claim_id, session)
+                else:
+                    guard.finish(args.claim_id, session, delivered=lambda claim: all(
+                        git_clean_path(root, name) for name in claim["files"]))
+                    result = {"status": "closed", "delivery_check": "claimed_paths_match_git"}
+        except (ValueError, OSError, SystemExit) as exc:
+            print(json.dumps({"status": "blocked", "reason": str(exc)}, ensure_ascii=False))
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "db-check":
+        import sqlite3
+        from .resources import check_sqlite_resource
+
+        try:
+            if registry_path is None:
+                raise ValueError("no policy file found; register the resource in metabolism.json first")
+            result = check_sqlite_resource(root, load_registry(registry_path), args.resource)
+        except (ValueError, OSError, sqlite3.Error, SystemExit) as exc:
+            print(json.dumps({"status": "blocked", "resource_id": args.resource, "reason": str(exc)}, ensure_ascii=False))
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
 
     if args.command == "init":
         target = root / args.file
@@ -469,7 +555,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "mcp":
         from . import mcp_server
 
-        return mcp_server.main(root, state_dir, registry_path)
+        return mcp_server.main(root, state_dir, registry_path, claim_file=args.claim_file)
     elif args.command == "gate":
         from .gate import gate_main, target_from_args
 

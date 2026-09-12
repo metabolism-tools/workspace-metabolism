@@ -112,6 +112,24 @@
           "path": {
             "type": "string"
           },
+          "resource_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "description": "Unique SQLite resource name for wm db-check. Requires an exact relative file path, no glob or links."
+          },
+          "sqlite": {
+            "type": "object",
+            "required": ["required_tables"],
+            "additionalProperties": false,
+            "properties": {
+              "required_tables": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {"type": "string", "minLength": 1, "pattern": "\\S"}
+              }
+            }
+          },
           "grade": {
             "enum": [
               "G1",
@@ -223,7 +241,8 @@
               }
             }
           }
-        }
+        },
+        "dependentRequired": {"resource_id": ["sqlite"], "sqlite": ["resource_id"]}
       }
     }
   }

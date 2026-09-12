@@ -131,7 +131,7 @@ def test_slim_policy_directory_entry_matches_db_inside(tmp_path: Path) -> None:
     }), encoding="utf-8")
     import json as _json
     reg_data = _json.loads(reg.read_text(encoding="utf-8"))
-    db = Path("/opt/dongzhu/quant_v10/data/research/work_ledger/marathon.db")
+    db = Path("/opt/example/data/research/work_ledger/app.db")
     policy = db_slim_policy(reg_data, db)
     assert policy["table"] == "research_work_unit", policy
     assert policy["blob_column"] == "checkpoint_json"
@@ -148,6 +148,40 @@ def test_slim_requires_table_and_keys(tmp_path: Path) -> None:
 def test_slim_db_missing_raises(tmp_path: Path) -> None:
     with pytest.raises(SystemExit, match="database not found"):
         slim(tmp_path / "nope.db", None, tmp_path / "state", yes=False)
+
+
+@pytest.mark.parametrize("yes", [False, True])
+def test_slim_database_disappears_before_connect(tmp_path, monkeypatch, yes):
+    db = tmp_path / "data" / "app.db"
+    db.parent.mkdir()
+    _make_db(db)
+    real_connect = sqlite3.connect
+
+    def removed_before_open(*args, **kwargs):
+        db.unlink()
+        return real_connect(*args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", removed_before_open)
+    with pytest.raises(SystemExit, match="cannot open existing database"):
+        slim(db, _policy(tmp_path), tmp_path / "state", yes=yes)
+    assert not db.exists()
+    assert not journal_path(tmp_path / "state").exists()
+
+
+def test_slim_preview_uses_readonly_connection(tmp_path, monkeypatch):
+    db = tmp_path / "data" / "app.db"
+    db.parent.mkdir()
+    _make_db(db)
+    real_connect = sqlite3.connect
+    modes = []
+
+    def record_open(database, **kwargs):
+        modes.append((database, kwargs.get("uri")))
+        return real_connect(database, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", record_open)
+    slim(db, _policy(tmp_path), tmp_path / "state")
+    assert modes == [(db.resolve().as_uri() + "?mode=ro", True)]
 
 
 def test_slim_unknown_blob_column_raises(tmp_path: Path) -> None:
