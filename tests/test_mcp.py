@@ -34,6 +34,7 @@ def test_tools_list():
     resp = json.loads(handle_message('{"jsonrpc":"2.0","id":2,"method":"tools/list"}', {}))
     names = {t["name"] for t in resp["result"]["tools"]}
     assert names == {
+        "wm_db_check",
         "wm_audit",
         "wm_health",
         "wm_explain",

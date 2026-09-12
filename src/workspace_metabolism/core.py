@@ -26,6 +26,8 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Iterator, Optional
 
+from .claim_backend import JsonClaimBackend, claim_cleanup_reason
+
 GRADES = {"G1", "G2", "G3", "G4"}
 ACTIONS = {"never", "auto", "approve"}
 AI_ACTIONS = {"read", "write", "execute", "delete", "network"}
@@ -130,6 +132,12 @@ def load_registry(registry_path: Path) -> dict:
                 f"refusing G4 auto-clean for sensitive path: {path} "
                 "(secrets/keys/credentials must never be auto-cleaned; use G1/G2/G3)"
             )
+    from .resources import validate_resource_entries
+
+    try:
+        validate_resource_entries(data["entries"])
+    except ValueError as exc:
+        raise SystemExit(f"invalid resource registration: {exc}") from exc
     ai_governance = data.get("ai_governance")
     if ai_governance is not None:
         if not isinstance(ai_governance, dict):
@@ -1189,6 +1197,26 @@ def render_report(report: dict, root: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _cleanup_claims(root: Path) -> list[dict]:
+    try:
+        return JsonClaimBackend(root).cleanup_claims()
+    except (OSError, ValueError) as exc:
+        raise SystemExit("cleanup blocked: claim registry unavailable or invalid; host review required") from exc
+
+
+@contextlib.contextmanager
+def _claim_operation_lock(root: Path, *, execute: bool):
+    # Claim writes acquire their registry lock before govern's state lock. Keep
+    # the same order here and retain the registry lock through the actual move.
+    with contextlib.ExitStack() as stack:
+        if execute:
+            try:
+                stack.enter_context(JsonClaimBackend(root).transaction())
+            except (OSError, ValueError) as exc:
+                raise SystemExit("cleanup blocked: claim registry unavailable or busy; host review required") from exc
+        yield
+
+
 def plan_items(
     root: Path,
     registry: dict,
@@ -1205,6 +1233,7 @@ def plan_items(
     never_clean = registry.get("never_clean", [])
     never_registry = {"entries": [{"path": p, "grade": "G1", "cleanup": "never"} for p in never_clean]}
     tracked = git_tracked_files(root)
+    claims = _cleanup_claims(root)
     items: list[dict] = []
     for c in collect_candidates(root, registry, now):
         if c["grade"] not in grades:
@@ -1234,6 +1263,8 @@ def plan_items(
             if refs:
                 reason = f"referenced in {len(refs)} file(s)"
                 c["references"] = refs[:5]
+        if not reason:
+            reason = claim_cleanup_reason(root, rel.as_posix(), claims)
         c["reason"] = reason
         items.append(c)
     return items
@@ -1257,7 +1288,7 @@ def clean(
     registry = load_registry(registry_path)
     if "G3" in grades and not approve:
         raise SystemExit("G3 cleanup requires approval (--approve)")
-    with state_operation_lock(state_dir, "clean"):
+    with _claim_operation_lock(root, execute=yes), state_operation_lock(state_dir, "clean"):
         items = plan_items(root, registry, grades, state_dir, window=window)
         allowed_cleanup = set()
         if "G4" in grades:
@@ -1388,7 +1419,8 @@ def explain(root: Path, registry_path: Path, state_dir: Path, rel_path: str) -> 
 def rollback(root: Path, state_dir: Path, run_id: str, dry: bool = False, operator: str = "manual", decision_id: Optional[str] = None) -> None:
     root = root.resolve()
     state_dir = state_dir.resolve()
-    with state_operation_lock(state_dir, "rollback"):
+    with _claim_operation_lock(root, execute=not dry), state_operation_lock(state_dir, "rollback"):
+        claims = _cleanup_claims(root)
         manifest_path = state_dir / "runs" / f"{run_id}.json"
         if not manifest_path.exists():
             raise SystemExit(f"run manifest not found: {manifest_path}")
@@ -1398,6 +1430,12 @@ def rollback(root: Path, state_dir: Path, run_id: str, dry: bool = False, operat
         for it in reversed(manifest["items"]):
             src = ensure_within_root(recycle, recycle / it["path"], "recycle source")
             dst = ensure_within_root(root, root / it["path"], "restore target")
+            reason = claim_cleanup_reason(root, dst.relative_to(root).as_posix(), claims)
+            if not reason:
+                reason = claim_cleanup_reason(recycle, src.relative_to(recycle).as_posix(), [])
+            if reason:
+                print(f"  [refused] {it['path']}: {reason}; skipped")
+                continue
             if not src.exists():
                 print(f"  [missing] {it['path']} not in recycle")
                 continue
@@ -1617,8 +1655,12 @@ def _slim_unlocked(
             raise SystemExit(f"invalid identifier: {name!r}")
 
     import sqlite3
+    from .sqlite_guard import open_existing_sqlite
 
-    con = sqlite3.connect(db_path.as_uri() + "?mode=" + ("rw" if yes else "ro"), uri=True)
+    try:
+        con = open_existing_sqlite(db_path, writable=yes)
+    except sqlite3.Error as exc:
+        raise SystemExit(f"cannot open existing database {db_path}: {exc}") from exc
     try:
         con.execute("PRAGMA busy_timeout = 30000")
         con.execute("BEGIN IMMEDIATE" if yes else "BEGIN")

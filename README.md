@@ -40,9 +40,10 @@ wm doctor --residue --apply-policy   # adopt the suggestions as policy entries (
 wm audit                             # read-only checkup with health score
 ```
 
-**Distribution status (checked 2026-09-11):** [GitHub release v0.5.2](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.5.2);
+**Distribution status (v0.6.0):** [GitHub release and installable wheel](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.6.0);
 [PyPI v0.5.1](https://pypi.org/project/workspace-metabolism/0.5.1/).
-The v0.5.2 features below require the GitHub release/source; PyPI does not yet provide that version.
+The new features require the GitHub wheel/source; PyPI publication is separate.
+See [v0.6.0 release notes](docs/publish/release-notes-v0.6.0.md) for installation.
 See the [Glama tool-definition assessment](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism/score)
 for interface quality; it does not establish production reliability or lower supervision.
 Honest: no large production deployments yet, and the policy schema may shift
@@ -69,6 +70,10 @@ This repo has two linked ideas:
 
 ## 中文快速上手（30 秒）
 
+**v0.6.0 新增**：先认领再写入、清理避让未完成认领、精确绑定 SQLite 路径及不建库的只读
+检查。复用现有任务和数据入口，不另建 AI 调度系统。见[接入指南](docs/existing-system-integration.md)、
+[认领使用说明](docs/claim-before-write.md)和[数据库检查](docs/sqlite-resources.md)。
+
 AI 编程（Claude Code / Codex / Aider 等）会在工作区留下大量草稿、缓存和
 废弃文件，越堆越多，下一轮 AI 还得在垃圾堆里干活。这个工具用一份策略文件
 管理文件的整个生命周期：**检查（只读）→ 回收（可回滚）→ 验证（防篡改记录）
@@ -86,7 +91,7 @@ wm slim --db data/app.db --yes          # 数据库也会膨胀：策略驱动�
 ```
 
 默认只读、绝不直接删文件；每步操作都有防篡改记录；Windows / Mac / Linux 通用。
-项目处于早期（v0.4），策略格式在 v1.0 前可能调整。完整英文文档见下文。
+项目处于早期，认领和受控编辑仍为实验能力；策略格式在 v1.0 前可能调整。完整英文文档见下文。
 
 ## Why this exists
 

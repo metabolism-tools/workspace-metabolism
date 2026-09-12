@@ -150,6 +150,40 @@ def test_slim_db_missing_raises(tmp_path: Path) -> None:
         slim(tmp_path / "nope.db", None, tmp_path / "state", yes=False)
 
 
+@pytest.mark.parametrize("yes", [False, True])
+def test_slim_database_disappears_before_connect(tmp_path, monkeypatch, yes):
+    db = tmp_path / "data" / "app.db"
+    db.parent.mkdir()
+    _make_db(db)
+    real_connect = sqlite3.connect
+
+    def removed_before_open(*args, **kwargs):
+        db.unlink()
+        return real_connect(*args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", removed_before_open)
+    with pytest.raises(SystemExit, match="cannot open existing database"):
+        slim(db, _policy(tmp_path), tmp_path / "state", yes=yes)
+    assert not db.exists()
+    assert not journal_path(tmp_path / "state").exists()
+
+
+def test_slim_preview_uses_readonly_connection(tmp_path, monkeypatch):
+    db = tmp_path / "data" / "app.db"
+    db.parent.mkdir()
+    _make_db(db)
+    real_connect = sqlite3.connect
+    modes = []
+
+    def record_open(database, **kwargs):
+        modes.append((database, kwargs.get("uri")))
+        return real_connect(database, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", record_open)
+    slim(db, _policy(tmp_path), tmp_path / "state")
+    assert modes == [(db.resolve().as_uri() + "?mode=ro", True)]
+
+
 def test_slim_unknown_blob_column_raises(tmp_path: Path) -> None:
     db = tmp_path / "app.db"
     _make_db(db)

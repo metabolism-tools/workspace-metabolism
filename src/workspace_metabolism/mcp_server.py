@@ -22,6 +22,21 @@ PROTOCOL_VERSION = "2024-11-05"
 
 TOOLS = [
     {
+        "name": "wm_db_check",
+        "description": (
+            "Check the exact SQLite resource registered by resource_id in the policy. "
+            "Read-only: returns table names, never creates databases or tables, repairs, "
+            "deletes, searches for substitutes, or accepts SQL. Missing/empty databases "
+            "and missing required tables fail. Success checks path/schema only, not data freshness or identity."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"resource_id": {"type": "string"}},
+            "required": ["resource_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "wm_audit",
         "description": (
             "Run a read-only workspace audit and return the complete report as JSON: every path the policy "
@@ -227,6 +242,18 @@ def _call_tool(name: str, params: dict, ctx: dict) -> dict:
                 break
     if registry_path is None:
         return _error("no policy file found; run `wm init` first")
+    if name == "wm_db_check":
+        import sqlite3
+        from .core import load_registry
+        from .resources import check_sqlite_resource
+
+        if set(params) != {"resource_id"} or not isinstance(params["resource_id"], str):
+            return _error("exactly one string resource_id is required; paths and SQL are not accepted")
+        try:
+            result = check_sqlite_resource(root, load_registry(registry_path), params["resource_id"])
+        except (ValueError, OSError, sqlite3.Error, SystemExit) as exc:
+            return _error(str(exc))
+        return _text_result(json.dumps(result, ensure_ascii=False, indent=2))
     if name == "wm_audit":
         report, _ = audit(root, registry_path, state_dir, dupes=bool(params.get("dupes")))
         return _text_result(json.dumps(report, ensure_ascii=False, indent=2))
@@ -312,12 +339,21 @@ def handle_message(line: str, ctx: dict) -> Optional[str]:
     if method == "ping":
         return json.dumps({"jsonrpc": "2.0", "id": msg_id, "result": {}})
     if method == "tools/list":
-        return json.dumps({"jsonrpc": "2.0", "id": msg_id, "result": {"tools": TOOLS}}, ensure_ascii=False)
+        catalog = TOOLS
+        if ctx.get("claim_editor") is not None:
+            from .claim_mcp import TOOLS as catalog
+        return json.dumps({"jsonrpc": "2.0", "id": msg_id, "result": {"tools": catalog}}, ensure_ascii=False)
     if method == "tools/call":
+        if ctx.get("claim_editor") is not None and (not isinstance(params, dict) or "id" not in msg):
+            return json.dumps({"jsonrpc": "2.0", "id": msg_id,
+                               "error": {"code": -32602, "message": "editing calls require an id and object params"}})
         name = str(params.get("name", ""))
         arguments = params.get("arguments") or {}
         try:
-            result = _call_tool(name, arguments, ctx)
+            editor = ctx.get("claim_editor")
+            if editor is not None:
+                arguments = params.get("arguments", {})
+            result = editor.call(name, arguments) if editor is not None else _call_tool(name, arguments, ctx)
         except Exception as exc:  # noqa: BLE001 - report any tool failure to the client
             return json.dumps(
                 {
@@ -342,10 +378,17 @@ def handle_message(line: str, ctx: dict) -> Optional[str]:
     )
 
 
-def main(root: Path, state_dir: Path, registry_path: Optional[Path]) -> int:
+def main(root: Path, state_dir: Path, registry_path: Optional[Path], *, claim_file: Optional[str] = None) -> int:
     """Run the stdio loop until EOF or shutdown."""
     ctx = {"root": root, "state_dir": state_dir, "registry_path": registry_path}
-    for raw in sys.stdin:
+    if claim_file is not None:
+        from .claim_mcp import ClaimEditor
+        ctx["claim_editor"] = ClaimEditor(root, registry_path, state_dir, claim_file)
+    lines = iter(lambda: sys.stdin.readline(128 * 1024 + 1), "") if claim_file is not None else sys.stdin
+    for raw in lines:
+        if claim_file is not None and len(raw) > 128 * 1024:
+            print("editing request exceeds connection limit; unfinished claim retained", file=sys.stderr)
+            return 2
         line = raw.strip()
         if not line:
             continue
