@@ -476,6 +476,41 @@ def scan_sensitive_files(root: Path, state_dir: Path | None = None) -> list[dict
     return sorted(hits, key=lambda hit: hit["path"])
 
 
+DEPENDENCY_MARKERS = ("site-packages/", "dist-packages/", "node_modules/")
+
+
+def summarize_sensitive(entries: list[dict]) -> dict:
+    """Group sensitive hits for triage: dependency trees collapse, own files stay listed.
+
+    Classification is by path only, against DEPENDENCY_MARKERS. A dependency
+    tree that does not use one of those directory names stays in ``workspace``
+    — the safe direction, because it is reported rather than hidden. Nothing is
+    dropped: every entry is still counted here and still present in the full
+    audit report.
+    """
+    workspace: list[dict] = []
+    groups: dict[str, dict] = {}
+    for entry in entries:
+        path = str(entry.get("path", ""))
+        marker = next((m for m in DEPENDENCY_MARKERS if f"/{m}" in f"/{path}"), None)
+        if marker is None:
+            workspace.append(entry)
+            continue
+        prefix = path.split(marker, 1)[0].rstrip("/")
+        root = f"{prefix}/{marker}" if prefix else marker
+        group = groups.setdefault(root, {"path": root, "kind": "dependency", "count": 0, "bytes": 0})
+        group["count"] += 1
+        group["bytes"] += int(entry.get("size", 0) or 0)
+    dependency_groups = sorted(groups.values(), key=lambda g: (-g["count"], g["path"]))
+    return {
+        "total": len(entries),
+        "dependency_count": sum(g["count"] for g in dependency_groups),
+        "workspace_count": len(workspace),
+        "dependency_groups": dependency_groups,
+        "workspace": workspace,
+    }
+
+
 def git_tracked_files(root: Path) -> Optional[set[str]]:
     """Set of git-tracked relative posix paths, or None when not a git repo.
 
