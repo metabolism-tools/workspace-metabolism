@@ -176,3 +176,73 @@ def test_wm_rollback_requires_run_id(tmp_path):
 def test_shutdown():
     resp = json.loads(handle_message('{"jsonrpc":"2.0","id":8,"method":"shutdown"}', {}))
     assert resp["result"] is None
+
+
+def _audit_ctx(tmp_path):
+    """Workspace holding one dependency tree and one workspace-owned sensitive file."""
+    root = tmp_path / "ws"
+    dep = root / ".venv" / "Lib" / "site-packages" / "pkg"
+    dep.mkdir(parents=True)
+    (dep / "token.py").write_text("x", encoding="utf-8")
+    (dep / "secret_store.py").write_text("x", encoding="utf-8")
+    (root / "pypi-token.txt").write_text("x", encoding="utf-8")
+    reg = tmp_path / "registry.json"
+    reg.write_text(
+        json.dumps({"version": 1, "defaults": {}, "never_clean": [], "entries": []}),
+        encoding="utf-8",
+    )
+    return {"root": root, "state_dir": tmp_path / "state", "registry_path": reg}
+
+
+def _audit_payload(ctx, arguments):
+    request = {
+        "jsonrpc": "2.0",
+        "id": 20,
+        "method": "tools/call",
+        "params": {"name": "wm_audit", "arguments": arguments},
+    }
+    resp = json.loads(handle_message(json.dumps(request), ctx))
+    return json.loads(resp["result"]["content"][0]["text"])
+
+
+def test_audit_summarizes_sensitive_by_default(tmp_path):
+    payload = _audit_payload(_audit_ctx(tmp_path), {})
+    assert payload["detail"] == "summary"
+    # The full entry list is gone from the payload, the counts are not.
+    assert "sensitive" not in payload
+    summary = payload["sensitive_summary"]
+    assert summary["total"] == 3
+    assert summary["dependency_count"] == 2
+    assert summary["workspace_count"] == 1
+    assert [e["path"] for e in summary["workspace"]] == ["pypi-token.txt"]
+    assert len(summary["dependency_groups"]) == 1
+    group = summary["dependency_groups"][0]
+    assert group["path"] == ".venv/Lib/site-packages/"
+    assert group["kind"] == "dependency"
+    assert group["count"] == 2
+    assert group["bytes"] > 0
+    # The count a caller reads first is unchanged, and the full list is still written out.
+    assert payload["summary"]["sensitive"] == 3
+    assert payload["report_path"].endswith(".md")
+
+
+def test_audit_detail_full_returns_every_sensitive_entry(tmp_path):
+    payload = _audit_payload(_audit_ctx(tmp_path), {"detail": "full"})
+    assert payload["detail"] == "full"
+    assert {e["path"] for e in payload["sensitive"]} == {
+        ".venv/Lib/site-packages/pkg/secret_store.py",
+        ".venv/Lib/site-packages/pkg/token.py",
+        "pypi-token.txt",
+    }
+    assert payload["sensitive_summary"]["total"] == 3
+
+
+def test_audit_rejects_unknown_detail(tmp_path):
+    resp = json.loads(
+        handle_message(
+            '{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"wm_audit","arguments":{"detail":"everything"}}}',
+            _audit_ctx(tmp_path),
+        )
+    )
+    assert resp["result"]["isError"] is True
+    assert "detail must be" in resp["result"]["content"][0]["text"]

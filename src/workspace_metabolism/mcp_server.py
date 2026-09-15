@@ -16,7 +16,18 @@ from pathlib import Path
 from typing import Any, Optional
 
 from . import __version__
-from .core import POLICY_FILENAMES, audit, clean, explain, govern, health_score, init_policy, rollback, verify
+from .core import (
+    POLICY_FILENAMES,
+    audit,
+    clean,
+    explain,
+    govern,
+    health_score,
+    init_policy,
+    rollback,
+    summarize_sensitive,
+    verify,
+)
 
 PROTOCOL_VERSION = "2024-11-05"
 
@@ -42,8 +53,10 @@ TOOLS = [
             "Run a read-only workspace audit and return the complete report as JSON: every path the policy "
             "covers, its grade (G1-G4), its cleanup state, and any anomalies. Use this at the start of a "
             "session to see what the metabolism policy says about the workspace, or before planning any "
-            "cleanup. Never moves or modifies any files; if no policy file exists it reports that instead of "
-            "failing."
+            "cleanup. Sensitive files are summarized by default — dependency trees collapsed into counted "
+            "directory groups, workspace-owned files listed individually — so a 'nothing is due' answer "
+            "stays small; pass detail='full' for every entry. Never moves or modifies any files; if no "
+            "policy file exists it reports that instead of failing."
         ),
         "inputSchema": {
             "type": "object",
@@ -51,7 +64,18 @@ TOOLS = [
                 "dupes": {
                     "type": "boolean",
                     "description": "When true, additionally scan for possible duplicate files (slower).",
-                }
+                },
+                "detail": {
+                    "type": "string",
+                    "enum": ["summary", "full"],
+                    "default": "summary",
+                    "description": (
+                        "summary (default) returns sensitive files as counts plus one group per dependency "
+                        "tree and lists workspace-owned files individually; full returns every sensitive "
+                        "entry, as earlier versions did. Nothing is dropped in either mode — the full list "
+                        "is always written to the audit report file (report_path)."
+                    ),
+                },
             },
         },
     },
@@ -255,8 +279,18 @@ def _call_tool(name: str, params: dict, ctx: dict) -> dict:
             return _error(str(exc))
         return _text_result(json.dumps(result, ensure_ascii=False, indent=2))
     if name == "wm_audit":
-        report, _ = audit(root, registry_path, state_dir, dupes=bool(params.get("dupes")))
-        return _text_result(json.dumps(report, ensure_ascii=False, indent=2))
+        report, report_path = audit(root, registry_path, state_dir, dupes=bool(params.get("dupes")))
+        detail = str(params.get("detail", "summary") or "summary").lower()
+        if detail not in ("summary", "full"):
+            return _error("detail must be 'summary' or 'full'")
+        payload = dict(report)
+        payload["sensitive_summary"] = summarize_sensitive(report.get("sensitive") or [])
+        if detail == "summary":
+            # The full list stays in the report file; only the payload is triaged.
+            payload.pop("sensitive", None)
+        payload["detail"] = detail
+        payload["report_path"] = str(report_path)
+        return _text_result(json.dumps(payload, ensure_ascii=False, indent=2))
     if name == "wm_govern":
         action = str(params.get("action", "")).strip()
         if not action:

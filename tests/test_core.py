@@ -2,7 +2,7 @@ import json
 import os
 import shutil
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -20,6 +20,19 @@ def make_old_dir(root: Path, name: str, days: int = 60) -> Path:
         os.utime(f, (old, old))
     os.utime(d, (old, old))
     return d
+
+
+def stamp_tree(path: Path, when: datetime) -> None:
+    """Pin a fixture tree's mtimes to `when`.
+
+    Tests that pass an explicit `now` must age their fixture against that same
+    clock: `make_old_dir` ages against wall-clock time, so a hardcoded `now`
+    silently stops producing candidates once real time moves past it.
+    """
+    ts = when.timestamp()
+    for f in path.rglob("*"):
+        os.utime(f, (ts, ts))
+    os.utime(path, (ts, ts))
 
 
 def write_registry(path: Path, entries: list[dict], never_clean: list[str] | None = None) -> None:
@@ -241,13 +254,13 @@ def test_g3_requires_approver(env, tmp_path: Path):
 
 def test_protected_window_blocks_when_active(env, tmp_path: Path):
     root, state = env
-    make_old_dir(root, "staging_g3")
+    now = datetime(2026, 8, 14, 10, 0)  # Friday
+    stamp_tree(make_old_dir(root, "staging_g3"), now - timedelta(days=40))
     reg = tmp_path / "registry.json"
     write_registry(
         reg,
         [{"path": "staging_g3", "grade": "G3", "cleanup": "approve", "retention_days": 30, "protected": True}],
     )
-    now = datetime(2026, 8, 14, 10, 0)  # Friday
     items = m.plan_items(root, m.load_registry(reg), {"G3"}, state, now=now, window=(0, 1439))
     assert items[0]["reason"] == "inside protected window"
 
@@ -572,13 +585,13 @@ def test_unregistered_excludes_never_clean_and_git(env, tmp_path: Path):
 
 def test_protected_window_skips_weekend(env, tmp_path: Path):
     root, state = env
-    make_old_dir(root, "staging_g3")
+    saturday = datetime(2026, 8, 15, 10, 0)
+    stamp_tree(make_old_dir(root, "staging_g3"), saturday - timedelta(days=40))
     reg = tmp_path / "registry.json"
     write_registry(
         reg,
         [{"path": "staging_g3", "grade": "G3", "cleanup": "approve", "retention_days": 30, "protected": True}],
     )
-    saturday = datetime(2026, 8, 15, 10, 0)
     items = m.plan_items(root, m.load_registry(reg), {"G3"}, state, now=saturday, window=(0, 1439))
     assert not items[0]["reason"]
 
@@ -1061,3 +1074,41 @@ def test_append_policy_entries_rejects_invalid(tmp_path: Path) -> None:
     # nothing was written
     data = json.loads(reg.read_text(encoding="utf-8"))
     assert data["entries"] == []
+
+
+def test_summarize_sensitive_groups_dependency_trees() -> None:
+    entries = [
+        {"path": ".venv/Lib/site-packages/a/token.py", "size": 10},
+        {"path": ".venv/Lib/site-packages/b/password.py", "size": 20},
+        {"path": "app/node_modules/c/secret.js", "size": 30},
+        {"path": "pypi-token.txt", "size": 40},
+        {"path": "docs/credentials.md", "size": 50},
+    ]
+    summary = m.summarize_sensitive(entries)
+    assert summary["total"] == 5
+    assert summary["dependency_count"] == 3
+    assert summary["workspace_count"] == 2
+    # Groups are ordered by count, so the biggest tree is read first.
+    assert [g["path"] for g in summary["dependency_groups"]] == [
+        ".venv/Lib/site-packages/",
+        "app/node_modules/",
+    ]
+    biggest = summary["dependency_groups"][0]
+    assert biggest["kind"] == "dependency"
+    assert biggest["count"] == 2
+    assert biggest["bytes"] == 30
+    assert [e["path"] for e in summary["workspace"]] == ["pypi-token.txt", "docs/credentials.md"]
+
+
+def test_summarize_sensitive_keeps_unmarked_trees_visible() -> None:
+    # A vendored tree without a known marker directory stays workspace-owned:
+    # the safe direction is visible, never silently hidden.
+    summary = m.summarize_sensitive([{"path": "vendor/python/lib/secret.py", "size": 1}])
+    assert summary["total"] == 1
+    assert summary["dependency_count"] == 0
+    assert summary["workspace_count"] == 1
+
+
+def test_summarize_sensitive_handles_missing_size() -> None:
+    summary = m.summarize_sensitive([{"path": ".venv/Lib/site-packages/a/token.py"}])
+    assert summary["dependency_groups"][0]["bytes"] == 0

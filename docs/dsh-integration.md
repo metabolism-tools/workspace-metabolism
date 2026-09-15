@@ -69,7 +69,7 @@ The default state directory lives outside the workspace on purpose, so
 
 | MCP tool | Model-facing name | What it does |
 | --- | --- | --- |
-| `wm_audit` | `mcp__wm__wm_audit` | Read-only checkup: candidates, unregistered paths, disk alerts, duplicates, sensitive files |
+| `wm_audit` | `mcp__wm__wm_audit` | Read-only checkup: candidates, unregistered paths, disk alerts, duplicates, sensitive files. Sensitive hits are **summarized by default** (dependency trees collapsed into counted groups, workspace-owned files listed); pass `detail: "full"` for every entry — the complete list is always written to the audit report file |
 | `wm_health` | `mcp__wm__wm_health` | Workspace health score 0–100 with component breakdown |
 | `wm_explain` | `mcp__wm__wm_explain` | Why a path is graded the way it is (the nutrition label) |
 | `wm_verify` | `mcp__wm__wm_verify` | Journal hash-chain and run-manifest integrity check |
