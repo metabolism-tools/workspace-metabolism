@@ -35,6 +35,8 @@ Version 0.1.3 adds [maintenance observation examples](examples/README.md#observe
 
 Download the plugin `.tgz` from the [dsh-metabolic-maintenance-v0.1.3 release](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/dsh-metabolic-maintenance-v0.1.3). Extract it into a directory you control; npm archives contain a `package/` directory. Keep that directory intact. No npm account, build step, or plugin dependency installation is required to load the extracted plugin. The optional lifecycle example requires Python and WM; the observation example requires only Python 3.11+.
 
+The same release is mirrored to the plugin's distribution repository, [metabolism-tools/dsh-metabolic-maintenance](https://github.com/metabolism-tools/dsh-metabolic-maintenance); development and the canonical skill text stay in this repository, which is authoritative.
+
 From the workspace you want to work on, generate a patch with the plugin's absolute location, then launch your existing DSH installation:
 
 ```sh
