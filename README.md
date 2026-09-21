@@ -43,6 +43,7 @@ wm audit                             # read-only checkup with health score
 **Distribution (v0.7.0):** [GitHub release and installable wheel](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.7.0).
 `retain` requires this GitHub wheel/source; PyPI publication is separate.
 See [v0.7.0 release notes](docs/publish/release-notes-v0.7.0.md) for installation.
+Listed in [awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers) under Developer Tools (merged 2026-09-21).
 See the [Glama tool-definition assessment](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism/score)
 for interface quality; it does not establish production reliability or lower supervision.
 Honest: no large production deployments yet, and the policy schema may shift
