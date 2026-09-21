@@ -15,8 +15,9 @@ workspace-metabolism integrates with DSH **with zero code on either side**: one
 
 What the DSH agent gets: `wm_audit`, `wm_health`, `wm_explain`, `wm_verify`,
 `wm_govern` (pre-action policy checks), `wm_clean` (dry-run by default),
-`wm_init`, and `wm_rollback` — the same policy-driven lifecycle as the CLI,
-now callable mid-session by the agent itself.
+`wm_init`, `wm_rollback`, and `wm_db_check` (read-only registered-SQLite
+checks) — the same policy-driven lifecycle as the CLI, now callable
+mid-session by the agent itself.
 
 ## Prerequisites
 
@@ -77,6 +78,7 @@ The default state directory lives outside the workspace on purpose, so
 | `wm_clean` | `mcp__wm__wm_clean` | Policy-driven cleanup plan; **dry-run unless `execute=true`** |
 | `wm_init` | `mcp__wm__wm_init` | Scaffold `metabolism.json` for a workspace with safe defaults (like `git init`) |
 | `wm_rollback` | `mcp__wm__wm_rollback` | Restore a previous `wm_clean` run from the recycle area, SHA-256 verified; **dry-run unless `execute=true`** |
+| `wm_db_check` | `mcp__wm__wm_db_check` | Read-only check of a policy-registered SQLite resource (`resource_id`): table names only — never creates, repairs, deletes, or accepts SQL |
 
 ## Safety model (inherited unchanged)
 
