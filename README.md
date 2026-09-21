@@ -223,6 +223,12 @@ auto-discovers `metabolism.json` (or `.wm.json`) in the workspace root, so
 policy file. Advanced users can start from
 [examples/registry.example.json](examples/registry.example.json).
 
+An executed `clean` that cannot move every planned item exits with an error.
+Its run manifest records both successful moves and failures, so successful
+moves can still be rolled back. The journal separates planned bytes from
+bytes actually moved and records zero reclaimed bytes: recycling does not
+free disk space. `wm evidence` reports these incomplete runs as failures.
+
 ## Commands
 
 | Command | What it does |
