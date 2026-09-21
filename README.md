@@ -40,10 +40,9 @@ wm doctor --residue --apply-policy   # adopt the suggestions as policy entries (
 wm audit                             # read-only checkup with health score
 ```
 
-**Distribution status (v0.6.0):** [GitHub release and installable wheel](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.6.0);
-[PyPI v0.5.1](https://pypi.org/project/workspace-metabolism/0.5.1/).
-The new features require the GitHub wheel/source; PyPI publication is separate.
-See [v0.6.0 release notes](docs/publish/release-notes-v0.6.0.md) for installation.
+**Distribution (v0.7.0):** [GitHub release and installable wheel](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.7.0).
+`retain` requires this GitHub wheel/source; PyPI publication is separate.
+See [v0.7.0 release notes](docs/publish/release-notes-v0.7.0.md) for installation.
 See the [Glama tool-definition assessment](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism/score)
 for interface quality; it does not establish production reliability or lower supervision.
 Honest: no large production deployments yet, and the policy schema may shift
@@ -145,7 +144,8 @@ Four objections come up so often they deserve their own page
   themselves; `wm mcp` + session-end hooks make that safe and audited.
 - **Not a blind-delete script** — nothing is ever deleted by pattern: items
   move to a recycle area with per-file hashes, and `rollback` restores them.
-  `purge` is the only real delete, and only inside the recycle area.
+  `purge` deletes file-recycle batches. The explicit `retain` policy can remove
+  unreferenced database rows after writing a complete recovery export.
 
 ## See it in action
 
@@ -191,8 +191,8 @@ of agent-driven software workspaces. Full write-up:
 ## Quick start
 
 ```bash
-# install from PyPI
-pip install workspace-metabolism
+# install the release that includes retain (PyPI is a separate channel)
+pip install https://github.com/metabolism-tools/workspace-metabolism/releases/download/v0.7.0/workspace_metabolism-0.7.0-py3-none-any.whl
 
 # or run without installing anything:
 #   PYTHONPATH=src python -m workspace_metabolism --help
@@ -231,7 +231,9 @@ policy file. Advanced users can start from
 | `clean --grades G4` | Move expired items to the recycle area (dry-run by default) |
 | `clean --grades G3` | Same, but requires `--approve` + `--approver` |
 | `rollback <run_id>` | Restore one cleanup run after an integrity check |
-| `purge --older-than 30` | Delete expired recycle batches (the only real delete) |
+| `purge --older-than 30` | Delete expired file-recycle batches |
+| `retain --db data/objects.db` | Preview removal of excess, unreferenced row versions under an explicit policy |
+| `retain --db data/objects.db --restore RUN_ID` | Preview verified row restoration; add `--yes` to execute |
 | `verify` | Check the journal hash chain and run manifests |
 | `status` | Overview of workspace, recycle area and pending candidates |
 | `init` | Scaffold a `metabolism.json` policy file (like `git init`) |
@@ -424,7 +426,7 @@ tools above. [Download the plugin](https://github.com/metabolism-tools/workspace
   policy matching. (Git is optional; `wm` never depends on it.)
 - Items move to the recycle area with per-file SHA-256 hashes; `rollback`
   verifies them before restoring and refuses to overwrite an existing path.
-- `purge` is the only command that truly deletes, and only inside the recycle
+- `purge` deletes file batches only inside the recycle
   area after retention.
 - The journal is a hash chain; `verify` detects any tampering.
 
@@ -468,6 +470,69 @@ the *research* honest.
 ## License
 
 MIT
+
+## SQLite row retention
+
+`retain` keeps the newest N versions per JSON group **plus every referenced
+version**, including references from old payloads. It never changes blob contents.
+The most specific workspace-relative entry must explicitly allow `db_retain`
+on a G2 database; G1, `never_clean`, active claims and `--protected-window` block
+execution. There are no CLI overrides that weaken the policy.
+
+```json
+{
+  "path": "data/objects.db", "grade": "G2", "cleanup": "never",
+  "db_retain": {
+    "table": "objects", "id_column": "hash", "blob_column": "body",
+    "group_by": ["code", "month"], "order_column": "captured_at", "keep": 2,
+    "blob_encoding": "gzip", "verify_sha256": true,
+    "reference_paths": ["objects/*/*"]
+  }
+}
+```
+
+Here `objects/*/*` traverses a JSON dictionary of lists of object IDs in **all**
+rows. Missing optional fields contain no references; malformed containers,
+missing referenced rows, invalid JSON, hash mismatches, unsupported schema or
+exceeded budgets stop the operation. Ungrouped payload rows are always retained.
+An empty `reference_paths` explicitly asserts that rows have no in-table
+references. WM cannot discover undeclared or external consumers; policy authors
+must establish that boundary before authorizing deletion. Triggers, foreign-key
+relationships, generated columns and composite primary keys are not supported.
+
+```bash
+wm --root /workspace --registry policy.json retain --db data/objects.db
+wm --root /workspace --registry policy.json retain --db data/objects.db --yes
+wm --root /workspace --registry policy.json retain --db data/objects.db --restore retain-RUN_ID
+wm --root /workspace --registry policy.json retain --db data/objects.db --restore retain-RUN_ID --yes
+```
+
+Use the actual `run_id` returned by the executed command. Preview writes no
+maintenance state. Execution plans inside a SQLite write transaction, exports
+**all columns with their types**, persists and reads back the export, then deletes.
+Recovery lives in `<state-dir>/retention/<run_id>/`, outside file `purge`'s scope,
+with no automatic expiry. Keep it until downstream acceptance and recovery
+requirements are satisfied; do not reclaim these backups by age alone.
+An interrupted `prepared` batch blocks another retention run; inspect it and use
+`--restore` to reconcile it. Restoration verifies the export, original database
+identity and schema, and refuses to overwrite changed rows. Already identical
+rows are left alone, making an interrupted restore retryable. Hashes detect
+accidental changes, not malicious replacement of both export and manifest.
+
+Defaults cap scans at 1,000,000 rows / 512 MiB encoded content / 120 seconds,
+decoded rows at 32 MiB and recovery export at 64 MiB. Policy can lower these
+limits. There is no automatic VACUUM, so reports claim zero disk reclamation;
+deleted database pages remain reusable inside SQLite, and recovery files consume
+space. Storage checks do not establish downstream business correctness.
+See `tests/test_retain.py` for reference protection, failure injection, concurrent
+writer exclusion, exact restoration and refusal of corrupted recovery material.
+
+Trusted host integrations may supply a claim backend implementing
+`transaction()` and `cleanup_claims()` to the Python `retain` function. The
+backend must reuse the host's authoritative lock and retain active/unresolved
+scopes; the CLI never ignores a foreign registry. `eligible_ids` can only narrow
+WM's own safe candidates, and `expected_ids_sha256` rejects a stale caller
+snapshot while the SQLite transaction is held.
 
 ## Maintenance evidence (0.5.1)
 
