@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -26,6 +27,7 @@ from .core import (
     rollback,
     scan_residue,
     slim,
+    retain,
     status,
     verify,
 )
@@ -130,7 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_roll.add_argument("--dry-run", action="store_true")
     p_roll.add_argument("--decision-id", help="link this run to a wm govern decision_id")
 
-    p_purge = sub.add_parser("purge", help="delete expired recycle batches (the only real delete)")
+    p_purge = sub.add_parser("purge", help="delete expired file-recycle batches")
     p_purge.add_argument("--older-than", type=int, default=30, help="age threshold in days (default: 30)")
     p_purge.add_argument("--yes", action="store_true", help="execute instead of preview")
     p_purge.add_argument("--auto", action="store_true", help="mark the run as scheduled")
@@ -195,6 +197,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_slim.add_argument("--yes", action="store_true", help="execute instead of dry-run")
     p_slim.add_argument("--decision-id", help="link this run to a wm govern decision_id")
 
+    p_retain = sub.add_parser("retain", help="retain unreferenced SQLite row versions with verified recovery (preview by default)")
+    p_retain.add_argument("--db", required=True, help="existing database inside --root; explicit db_retain policy required")
+    p_retain.add_argument("--yes", action="store_true", help="execute the freshly computed plan")
+    p_retain.add_argument("--restore", metavar="RUN_ID", help="restore a retain batch without overwriting changed rows")
+
     p_gate = sub.add_parser(
         "gate",
         help="run an MCP governance proxy: every tool call is checked against the policy first",
@@ -241,6 +248,20 @@ def main(argv: list[str] | None = None) -> int:
     window = parse_window(args.protected_window)
     operator = "auto" if getattr(args, "auto", False) else "manual"
     registry_path = _resolve_registry(root, args.registry)
+
+    if args.command == "retain":
+        try:
+            if registry_path is None:
+                raise ValueError("retain requires a registry with an explicit db_retain policy")
+            db = Path(args.db)
+            result = retain(db if db.is_absolute() else root / db, root=root,
+                            registry_path=registry_path, state_dir=state_dir, yes=args.yes,
+                            restore=args.restore, window=window, operator=operator)
+        except (ValueError, OSError, EOFError, sqlite3.Error) as exc:
+            print(json.dumps({"action": "retain", "status": "blocked", "reason": str(exc)}))
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
 
     if args.command == "claim":
         from .claim_backend import JsonClaimBackend, git_clean_path
@@ -294,7 +315,6 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "db-check":
-        import sqlite3
         from .resources import check_sqlite_resource
 
         try:

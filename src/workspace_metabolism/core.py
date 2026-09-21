@@ -6,7 +6,7 @@ Policy-driven file lifecycle management:
 2. audit     - read-only scan against the registry (candidates, unregistered, disk)
 3. clean     - move expired items to a recycle area (never a direct delete)
 4. rollback  - restore a cleanup run after an integrity check
-5. purge     - delete recycle batches older than a threshold (the only real delete)
+5. purge     - delete file-recycle batches older than a threshold
 6. verify    - check the hash-chained journal and run manifests
 
 Zero third-party dependencies (Python >= 3.11 standard library only).
@@ -1815,6 +1815,291 @@ def _slim_unlocked(
         **report,
     )
     return {"action": "slim", **report}
+
+
+def db_retain_policy(registry: dict, db_path: Path, root: Path) -> dict:
+    """Select the most specific policy by workspace-relative path, never by suffix."""
+    relative = db_path.resolve().relative_to(root.resolve())
+    entry = most_specific_entry(registry, relative)
+    if not entry or entry.get("grade") != "G2" or not isinstance(entry.get("db_retain"), dict):
+        raise ValueError("retain requires an explicit G2 db_retain policy")
+    protected = {"entries": [{"path": p} for p in registry.get("never_clean", [])]}
+    if covered_by_any(protected, relative):
+        raise ValueError("retain database is protected by never_clean")
+    return dict(entry["db_retain"])
+
+
+def _retain_json(raw, encoding: str, limit: int) -> dict:
+    import gzip
+    import io
+    data = raw.encode("utf-8") if isinstance(raw, str) else bytes(raw)
+    if encoding == "gzip" or (encoding == "auto" and data.startswith(b"\x1f\x8b")):
+        with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+            data = stream.read(limit + 1)
+    if len(data) > limit:
+        raise ValueError("retain decoded row exceeds byte budget")
+    obj = json.loads(data)
+    if not isinstance(obj, dict):
+        raise ValueError("retain blob must decode to an object")
+    return obj
+
+
+def _retain_refs(obj, parts: list[str]) -> list:
+    """Strict wildcard path traversal; absent optional fields contain no references."""
+    if not parts:
+        if not isinstance(obj, str) or not obj:
+            raise ValueError("retain reference must be a nonempty string")
+        return [obj]
+    part, *rest = parts
+    if part == "*":
+        if not isinstance(obj, (dict, list)):
+            raise ValueError("retain reference container is malformed")
+        children = obj.values() if isinstance(obj, dict) else obj
+        return [key for child in children for key in _retain_refs(child, rest)]
+    if not isinstance(obj, dict):
+        raise ValueError("retain reference path is malformed")
+    return _retain_refs(obj[part], rest) if part in obj else []
+
+
+def _retain_save(path: Path, raw: bytes) -> None:
+    """Publish a complete file and persist its directory before deleting source rows."""
+    import tempfile
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, name = tempfile.mkstemp(dir=path.parent, prefix=".retain-")
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        if os.name == "posix":
+            for directory in (path.parent, *path.parent.parents):
+                fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(fd)
+                finally:
+                    os.close(fd)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _retain_schema(con, table: str, identity: str) -> tuple[list[str], str]:
+    """Restrict retention to ordinary tables with one explicit primary key."""
+    schema = con.execute("SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name").fetchall()
+    definitions = [row for row in schema if row[0] == "table" and row[1] == table]
+    if len(definitions) != 1 or "VIRTUAL TABLE" in definitions[0][3].upper():
+        raise ValueError("retain needs an ordinary table")
+    if any(row[0] == "trigger" and row[2] == table for row in schema):
+        raise ValueError("retain refuses table triggers")
+    info = con.execute(f'PRAGMA table_xinfo("{table}")').fetchall()
+    if [row[1] for row in info if row[5]] != [identity] or any(row[6] for row in info):
+        raise ValueError("retain needs one explicit primary key and no generated columns")
+    for kind, name, _, _ in schema:
+        if kind == "table":
+            quoted = name.replace('"', '""')
+            foreign = con.execute(f'PRAGMA foreign_key_list("{quoted}")').fetchall()
+            if (name == table and foreign) or any(row[2] == table for row in foreign):
+                raise ValueError("retain refuses foreign-key relationships")
+    return [row[1] for row in info], hashlib.sha256(json.dumps(schema).encode()).hexdigest()
+
+
+def retain(db_path: Path, *, root: Path, registry_path: Path, state_dir: Path,
+           yes: bool = False, restore: str | None = None,
+           window: tuple[int, int] | None = None, operator: str = "manual",
+           eligible_ids: set | None = None, expected_ids_sha256: str | None = None,
+           claim_backend=None) -> dict:
+    """Retain newest unreferenced versions; restore complete rows without overwriting.
+
+    All JSON references in the table protect their targets, even those in old
+    payloads. Planning and deletion share a SQLite write transaction. Recovery
+    batches live outside file-purge's recycle area and have no automatic expiry.
+    """
+    import base64
+    import gzip
+    import sqlite3
+    import time
+    from uuid import uuid4
+
+    root, state_dir = root.resolve(), state_dir.resolve()
+    original = db_path.absolute()
+    db_path = ensure_within_root(root, db_path, "retain database")
+    if any(p.is_symlink() for p in (original, *original.parents)):
+        raise ValueError("retain refuses symlink database paths")
+    policy_sha = hashlib.sha256(registry_path.read_bytes()).hexdigest()
+    policy = db_retain_policy(load_registry(registry_path), db_path, root)
+    if hashlib.sha256(registry_path.read_bytes()).hexdigest() != policy_sha:
+        raise ValueError("retain policy changed during read")
+    table, blob, identity = (policy.get(k) for k in ("table", "blob_column", "id_column"))
+    order = policy.get("order_column", identity)
+    keep = policy.get("keep", 2)
+    groups = policy.get("group_by")
+    references = policy.get("reference_paths")
+    encoding = policy.get("blob_encoding", "auto")
+    if any(not isinstance(n, str) or not _valid_identifier(n) for n in (table, blob, identity, order)):
+        raise ValueError("invalid retain SQL identifiers")
+    if type(keep) is not int or keep < 1 or not isinstance(groups, list) or not groups or any(
+            not isinstance(k, str) or not k for k in groups):
+        raise ValueError("retain needs positive keep and group_by keys")
+    if not isinstance(references, list) or any(not isinstance(p, str) or not p or any(
+            not part for part in p.split("/")) for p in references):
+        raise ValueError("retain requires explicit reference_paths (empty only for independent rows)")
+    if encoding not in {"auto", "json", "gzip"}:
+        raise ValueError("invalid retain blob_encoding")
+    limits = {"max_rows": 1_000_000, "max_scan_bytes": 512 * 1024**2,
+              "max_row_bytes": 32 * 1024**2, "max_export_bytes": 64 * 1024**2, "seconds": 120}
+    for key, ceiling in list(limits.items()):
+        limits[key] = policy.get(key, ceiling)
+        if type(limits[key]) is not int or not 0 < limits[key] <= ceiling:
+            raise ValueError(f"invalid retain budget: {key}")
+    if yes and in_protected_window(None, window):
+        raise ValueError("retain blocked inside protected window")
+    deadline = time.monotonic() + limits["seconds"]
+    relative = db_path.relative_to(root).as_posix()
+    backend = claim_backend if claim_backend is not None else JsonClaimBackend(root)
+    with backend.transaction() if yes else contextlib.nullcontext(), contextlib.ExitStack() as stack:
+        reason = claim_cleanup_reason(root, relative, backend.cleanup_claims())
+        if reason:
+            raise ValueError(reason)
+        if yes:
+            stack.enter_context(state_operation_lock(state_dir, "retain"))
+        if restore is None:
+            for index, previous in enumerate((state_dir / "retention").glob("retain-*/manifest.json")):
+                if index >= 1000 or previous.stat().st_size > 65536:
+                    raise ValueError("retain recovery inventory exceeds budget")
+                old = json.loads(previous.read_bytes())
+                if not isinstance(old, dict) or old.get("schema") != "wm.retain.v2" or not old.get("database"):
+                    raise ValueError("invalid retain recovery manifest")
+                if old.get("database") == str(db_path) and old.get("status") not in {"completed", "restored"}:
+                    raise ValueError(f"retain unresolved batch; verify or restore {previous.parent.name}")
+        con = sqlite3.connect(db_path.as_uri() + ("?mode=rw" if yes else "?mode=ro"), uri=True, timeout=5)
+        stack.callback(con.close)
+        con.set_progress_handler(lambda: int(time.monotonic() > deadline), 10000)
+        con.execute("BEGIN IMMEDIATE" if yes else "BEGIN")
+        columns, schema_sha = _retain_schema(con, table, identity)
+        if not {blob, identity, order}.issubset(columns):
+            raise ValueError("retain columns missing from table")
+        col_sql = ",".join('"' + c.replace('"', '""') + '"' for c in columns)
+        id_index, blob_index = columns.index(identity), columns.index(blob)
+        before_stat = db_path.stat()
+        db_identity = [before_stat.st_dev, before_stat.st_ino]
+        report = {"action": "retain", "database": str(db_path), "dry_run": not yes,
+                  "status": "preview", "rows_deleted": 0, "rows_restored": 0,
+                  "reclaimed_bytes": 0, "vacuum_done": False}
+        if restore is not None:
+            if not re.fullmatch(r"retain-[a-f0-9]{32}", restore):
+                raise ValueError("invalid retain restore run id")
+            folder = ensure_within_root(state_dir, state_dir / "retention" / restore, "retain recovery")
+            if (folder / "manifest.json").stat().st_size > 65536:
+                raise ValueError("retain manifest too large")
+            manifest_bytes = (folder / "manifest.json").read_bytes()
+            manifest = json.loads(manifest_bytes)
+            if (manifest.get("schema") != "wm.retain.v2" or manifest.get("database") != str(db_path)
+                    or manifest.get("database_identity") != db_identity or manifest.get("table") != table
+                    or manifest.get("schema_sha256") != schema_sha or manifest.get("columns") != columns):
+                raise ValueError("retain restore identity/schema mismatch")
+            with gzip.open(folder / "rows.json.gz", "rb") as stream:
+                raw = stream.read(limits["max_export_bytes"] + 1)
+            if len(raw) > limits["max_export_bytes"] or hashlib.sha256(raw).hexdigest() != manifest["export_sha256"]:
+                raise ValueError("retain recovery hash/budget mismatch")
+            records = json.loads(raw)
+            if len(records) != manifest["rows"]:
+                raise ValueError("retain recovery row count mismatch")
+            restore_rows = []
+            seen = set()
+            for record in records:
+                row = tuple(base64.b64decode(v["bytes"], validate=True) if isinstance(v, dict) else v for v in record)
+                if len(row) != len(columns) or row[id_index] in seen:
+                    raise ValueError("invalid retain recovery row")
+                seen.add(row[id_index])
+                current = con.execute(f'SELECT {col_sql} FROM "{table}" WHERE "{identity}"=?', (row[id_index],)).fetchone()
+                if current is not None and current != row:
+                    raise ValueError("retain restore would overwrite changed row")
+                if current is None:
+                    restore_rows.append(row)
+            if yes:
+                con.executemany(f'INSERT INTO "{table}" ({col_sql}) VALUES ({",".join("?" for _ in columns)})', restore_rows)
+                con.commit()
+                manifest["status"] = "restored"
+                _retain_save(folder / "manifest.json", json.dumps(manifest).encode())
+            report.update(run_id=restore, rows_to_restore=len(restore_rows), rows_restored=len(restore_rows) if yes else 0,
+                          status="restored" if yes else "preview", export_sha256=manifest["export_sha256"])
+        else:
+            all_ids, referenced, candidates, counts = set(), set(), [], {}
+            scanned = scan_bytes = 0
+            sql = f'SELECT "{identity}","{blob}","{order}" FROM "{table}" ORDER BY "{order}" DESC,"{identity}" DESC'
+            for key, raw_blob, sort_value in con.execute(sql):
+                scanned += 1
+                if not isinstance(raw_blob, (str, bytes)) or not isinstance(key, (str, int)) or sort_value is None:
+                    raise ValueError("retain invalid identity/blob/order value")
+                scan_bytes += len(raw_blob)
+                if scanned > limits["max_rows"] or scan_bytes > limits["max_scan_bytes"] or time.monotonic() > deadline:
+                    raise ValueError("retain scan budget exceeded")
+                if policy.get("verify_sha256", False) and hashlib.sha256(
+                        raw_blob.encode() if isinstance(raw_blob, str) else raw_blob).hexdigest() != key:
+                    raise ValueError("retain content hash mismatch")
+                obj = _retain_json(raw_blob, encoding, limits["max_row_bytes"])
+                all_ids.add(key)
+                for path in references:
+                    referenced.update(_retain_refs(obj, path.split("/")))
+                if not all(name in obj for name in groups):
+                    continue  # Ungrouped payloads always survive and still protect their members.
+                group = tuple(obj[name] for name in groups)
+                if any(not isinstance(v, (str, int, float, bool)) for v in group):
+                    raise ValueError("retain group values must be non-null scalars")
+                group_key = json.dumps(group, ensure_ascii=False, allow_nan=False)
+                counts[group_key] = counts.get(group_key, 0) + 1
+                if counts[group_key] > keep:
+                    candidates.append(key)
+            if referenced - all_ids:
+                raise ValueError("retain dangling references; refusing deletion")
+            if expected_ids_sha256 is not None and hashlib.sha256(
+                    "\n".join(sorted(str(key) for key in all_ids)).encode()).hexdigest() != expected_ids_sha256:
+                raise ValueError("retain stale caller snapshot")
+            delete_ids = [key for key in candidates if key not in referenced
+                          and (eligible_ids is None or key in eligible_ids)]
+            report.update(rows_scanned=scanned, groups=len(counts), rows_to_delete=len(delete_ids),
+                          rows_protected_by_reference=len(set(candidates) & referenced))
+            if yes and delete_ids:
+                records, export_bytes = [], 2
+                for key in delete_ids:
+                    row = con.execute(f'SELECT {col_sql} FROM "{table}" WHERE "{identity}"=?', (key,)).fetchone()
+                    encoded = [({"bytes": base64.b64encode(v).decode()} if isinstance(v, bytes) else v) for v in row]
+                    value = json.dumps(encoded, ensure_ascii=False, allow_nan=False).encode()
+                    export_bytes += len(value) + 1
+                    if export_bytes > limits["max_export_bytes"] or time.monotonic() > deadline:
+                        raise ValueError("retain export budget exceeded")
+                    records.append(encoded)
+                raw = json.dumps(records, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()
+                if shutil.disk_usage(state_dir).free < len(raw) * 2 + 10 * 1024**2:
+                    raise ValueError("retain recovery space insufficient")
+                run_id = "retain-" + uuid4().hex
+                folder = state_dir / "retention" / run_id
+                folder.mkdir(parents=True, exist_ok=False)
+                digest = hashlib.sha256(raw).hexdigest()
+                manifest = {"schema": "wm.retain.v2", "database": str(db_path), "database_identity": db_identity,
+                            "table": table, "columns": columns, "schema_sha256": schema_sha,
+                            "rows": len(records), "export_sha256": digest, "status": "prepared",
+                            "policy_sha256": policy_sha, "run_id": run_id}
+                _retain_save(folder / "rows.json.gz", gzip.compress(raw, mtime=0))
+                _retain_save(folder / "manifest.json", json.dumps(manifest).encode())
+                with gzip.open(folder / "rows.json.gz", "rb") as stream:
+                    if stream.read(len(raw) + 1) != raw:
+                        raise ValueError("retain export readback mismatch")
+                if [db_path.stat().st_dev, db_path.stat().st_ino] != db_identity:
+                    raise ValueError("retain database replaced during planning")
+                con.executemany(f'DELETE FROM "{table}" WHERE "{identity}"=?', [(key,) for key in delete_ids])
+                con.commit()
+                manifest["status"] = "completed"
+                _retain_save(folder / "manifest.json", json.dumps(manifest).encode())
+                report.update(run_id=run_id, rows_deleted=len(delete_ids), status="retained",
+                              export_sha256=digest, export_path=str(folder / "rows.json.gz"))
+            elif yes:
+                report["status"] = "no_action_due"
+        if yes:
+            journal_append(state_dir, "retain_restore" if restore else "retain", operator,
+                           **{key: value for key, value in report.items() if key != "action"})
+        return report
 
 
 def doctor(root: Path, registry_path: Path | None, state_dir: Path) -> dict:

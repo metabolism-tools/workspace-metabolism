@@ -119,14 +119,20 @@
           },
           "sqlite": {
             "type": "object",
-            "required": ["required_tables"],
+            "required": [
+              "required_tables"
+            ],
             "additionalProperties": false,
             "properties": {
               "required_tables": {
                 "type": "array",
                 "minItems": 1,
                 "uniqueItems": true,
-                "items": {"type": "string", "minLength": 1, "pattern": "\\S"}
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                }
               }
             }
           },
@@ -240,9 +246,107 @@
                 "uniqueItems": true
               }
             }
+          },
+          "db_retain": {
+            "type": "object",
+            "description": "Whole-row SQLite retention. All declared in-table JSON references protect their targets; backups have no automatic expiry.",
+            "required": [
+              "table",
+              "blob_column",
+              "id_column",
+              "group_by",
+              "reference_paths"
+            ],
+            "properties": {
+              "table": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "blob_column": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "id_column": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "order_column": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "group_by": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "reference_paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "keep": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 2
+              },
+              "blob_encoding": {
+                "enum": [
+                  "auto",
+                  "json",
+                  "gzip"
+                ],
+                "default": "auto"
+              },
+              "verify_sha256": {
+                "type": "boolean",
+                "default": false
+              },
+              "max_rows": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000,
+                "default": 1000000
+              },
+              "max_scan_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 536870912,
+                "default": 536870912
+              },
+              "max_row_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 33554432,
+                "default": 33554432
+              },
+              "max_export_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 67108864,
+                "default": 67108864
+              },
+              "seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 120,
+                "default": 120
+              }
+            }
           }
         },
-        "dependentRequired": {"resource_id": ["sqlite"], "sqlite": ["resource_id"]}
+        "dependentRequired": {
+          "resource_id": [
+            "sqlite"
+          ],
+          "sqlite": [
+            "resource_id"
+          ]
+        }
       }
     }
   }

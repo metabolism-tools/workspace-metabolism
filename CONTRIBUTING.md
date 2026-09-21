@@ -8,7 +8,8 @@ policy allows, and every action is verifiable."
 
 - **Never break the safety model.** `clean` must stay dry-run by default,
   `rollback` must verify hashes and refuse to overwrite, `purge` must stay the
-  only real delete, and the journal must detect tampering. Changes touching
+  only file-batch delete, and `retain` must export complete rows before deleting
+  and preserve declared references. The journal must detect tampering. Changes touching
   these paths need explicit review.
 - **Zero runtime dependencies.** Anything you need beyond the Python standard
   library must live behind an optional integration (like the MCP server,
