@@ -109,3 +109,34 @@ def test_installed_cli_readonly_without_registry(tmp_path, capsys):
     assert before == after
     assert main(["--state-dir", str(tmp_path / "missing"), "evidence"]) == 1
     assert json.loads(capsys.readouterr().out)["evidence_status"] == "missing"
+
+
+def test_partial_clean_keeps_recovery_evidence_and_does_not_claim_planned_bytes(tmp_path, monkeypatch):
+    from workspace_metabolism import core
+    root, state = tmp_path / "workspace", tmp_path / "state"
+    root.mkdir()
+    for name, data in (("good", b"good"), ("denied", b"cannot move")):
+        (root / name).write_bytes(data)
+    registry = root / "policy.json"
+    registry.write_text('{"version":1,"entries":[]}', encoding="utf-8")
+    items = [{"path": name, "grade": "G4", "cleanup": "auto", "reason": "",
+              "is_dir": False, "files": 1, "size": (root / name).stat().st_size}
+             for name in ("good", "denied")]
+    monkeypatch.setattr(core, "plan_items", lambda *a, **kw: items)
+    original_move = core.shutil.move
+    def move(src, dst):
+        if Path(src).name == "denied":
+            raise PermissionError("synthetic")
+        return original_move(src, dst)
+    monkeypatch.setattr(core.shutil, "move", move)
+    with pytest.raises(SystemExit, match="clean incomplete"):
+        core.clean(root, registry, state, {"G4"}, yes=True)
+    record = json.loads((state / "journal.jsonl").read_text().splitlines()[-1])
+    assert record["size"] == 4 and record["planned_bytes"] == 15
+    assert record["reclaimed_bytes"] == 0 and record["errors"] == 1
+    manifest = json.loads((state / "runs" / (record["run_id"] + ".json")).read_text())
+    assert manifest["status"] == "incomplete" and len(manifest["items"]) == 1
+    assert module.summarize(state / "journal.jsonl")["operation_observations"] == {"failure_reported": 1}
+    core.rollback(root, state, record["run_id"])
+    assert (root / "good").read_bytes() == b"good"
+    assert (root / "denied").read_bytes() == b"cannot move"

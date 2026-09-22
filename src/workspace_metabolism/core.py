@@ -1353,7 +1353,7 @@ def clean(
         run_id = f"clean-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
         recycle = state_dir / "recycle" / run_id
         runs_dir = state_dir / "runs"
-        manifest = {"run_id": run_id, "ts": now_str(), "items": []}
+        manifest = {"run_id": run_id, "ts": now_str(), "items": [], "errors": []}
         moved_ok = 0
         for it in todo:
             src = ensure_within_root(root, root / it["path"], "clean source")
@@ -1361,9 +1361,11 @@ def clean(
             try:
                 if dst.exists():
                     print(f"  [skip] {it['path']}: target already exists in recycle")
+                    manifest["errors"].append({"path": it["path"], "reason": "destination_exists"})
                     continue
                 if not src.exists():
                     print(f"  [skip] {it['path']}: source missing before move")
+                    manifest["errors"].append({"path": it["path"], "reason": "source_missing"})
                     continue
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 hashes, integrity = item_hashes(src, it["size"], it["files"])
@@ -1385,7 +1387,9 @@ def clean(
                 moved_ok += 1
                 print(f"  [recycled] {it['path']} -> {dst}")
             except Exception as exc:  # noqa: BLE001
+                manifest["errors"].append({"path": it["path"], "reason": type(exc).__name__})
                 print(f"  [error] {it['path']}: {exc}")
+        manifest["status"] = "incomplete" if manifest["errors"] else "completed"
         runs_dir.mkdir(parents=True, exist_ok=True)
         (runs_dir / f"{run_id}.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         journal_append(
@@ -1396,11 +1400,17 @@ def clean(
             run_id=run_id,
             grades=sorted(grades),
             items=moved_ok,
-            size=sum(it["size"] for it in todo),
+            size=sum(it["size"] for it in manifest["items"]),
+            planned_bytes=size_todo,
+            reclaimed_bytes=0,
+            errors=len(manifest["errors"]),
+            status=manifest["status"],
             approver=approver,
             decision_id=decision_id,
         )
-        print(f"done: {moved_ok}/{len(todo)} item(s) moved to recycle. rollback: wm rollback {run_id}")
+        print(f"{manifest['status']}: {moved_ok}/{len(todo)} item(s) moved to recycle. rollback: wm rollback {run_id}")
+        if manifest["errors"]:
+            raise SystemExit(f"clean incomplete: {len(manifest['errors'])} item(s) failed; inspect run {run_id}")
 
 
 def explain(root: Path, registry_path: Path, state_dir: Path, rel_path: str) -> dict:

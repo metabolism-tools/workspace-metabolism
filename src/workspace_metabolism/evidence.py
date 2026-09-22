@@ -119,6 +119,9 @@ def summarize(path: Path) -> dict:
                 outcome = {"ok": "execution_reported_ok", "dry_run": "preview",
                            "error": "failure_reported", "failed": "failure_reported"}.get(
                                status if isinstance(status, str) else "", "unknown_outcome")
+            elif action == "clean":
+                outcome = {"completed": "recycled_not_reclaimed", "incomplete": "failure_reported"}.get(
+                    str(entry.get("status", "")), "unknown_outcome")
             else:
                 outcome = "operation_recorded"
             outcomes[outcome] += 1
