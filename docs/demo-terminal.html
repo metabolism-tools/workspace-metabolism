@@ -3,184 +3,565 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>workspace-metabolism — 60-second demo</title>
+<meta name="description" content="Keep agent workspaces usable across runs with policy-based file lifecycle rules, bounded cleanup, an audit trail and verified restore. Use with one agent or share across agents.">
+<title>workspace-metabolism — Keep the workspace usable between agent runs</title>
 <style>
   :root {
-    --bg: #0d1117;
-    --fg: #c9d1d9;
-    --dim: #8b949e;
-    --prompt: #3fb950;
-    --accent: #58a6ff;
-    --warn: #d29922;
-    --ok: #3fb950;
-    --border: #30363d;
+    color-scheme: light;
+    --ink: #17241d;
+    --muted: #5f7067;
+    --paper: #f6f8f5;
+    --panel: #ffffff;
+    --line: #dce5dd;
+    --green: #177245;
+    --green-dark: #105c37;
+    --green-soft: #e8f5ed;
+    --amber: #875b08;
+    --amber-soft: #fff4d8;
+    --blue-soft: #edf4fb;
+    --shadow: 0 18px 48px rgba(24, 55, 37, .09);
   }
+
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: #010409;
-    color: var(--fg);
-    font-family: "Cascadia Code", "Consolas", "SF Mono", Menlo, monospace;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 24px;
+    background:
+      radial-gradient(circle at 10% 0%, #e9f5ec 0, transparent 34rem),
+      var(--paper);
+    color: var(--ink);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
   }
-  .window {
-    width: min(860px, 100%);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-    background: var(--bg);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, .55);
+
+  button, a { font: inherit; }
+  button:focus-visible, a:focus-visible {
+    outline: 3px solid #68a9e2;
+    outline-offset: 3px;
   }
-  .bar {
-    display: flex;
+
+  .page {
+    width: min(960px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 42px 0 54px;
+  }
+
+  .eyebrow {
+    display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 14px;
-    background: #161b22;
-    border-bottom: 1px solid var(--border);
+    color: var(--green-dark);
+    font-size: .82rem;
+    font-weight: 750;
+    letter-spacing: .04em;
+    text-transform: uppercase;
   }
-  .dot { width: 12px; height: 12px; border-radius: 50%; }
-  .dot.r { background: #ff5f57; }
-  .dot.y { background: #febc2e; }
-  .dot.g { background: #28c840; }
-  .bar .title { margin-left: 8px; color: var(--dim); font-size: 13px; }
-  .bar .spacer { flex: 1; }
-  .replay {
-    background: #21262d;
-    color: var(--fg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 4px 12px;
-    font: inherit;
-    font-size: 12px;
+
+  .eyebrow::before {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #36a269;
+    content: "";
+  }
+
+  h1 {
+    max-width: 680px;
+    margin: 12px 0 10px;
+    font-size: clamp(2rem, 5vw, 3.45rem);
+    letter-spacing: -.045em;
+    line-height: 1.08;
+  }
+
+  .intro {
+    max-width: 660px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 1.08rem;
+  }
+
+  .safety-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 20px 0 24px;
+    padding: 8px 12px;
+    border: 1px solid #d5e8da;
+    border-radius: 999px;
+    background: #f0f8f2;
+    color: #315c41;
+    font-size: .88rem;
+    font-weight: 650;
+  }
+
+  .policy-brief {
+    display: grid;
+    gap: 5px;
+    margin: 0 0 20px;
+    padding: 14px 16px;
+    border: 1px solid #d5e8da;
+    border-radius: 12px;
+    background: #f7fbf7;
+    color: #3f5947;
+    font-size: .88rem;
+  }
+
+  .policy-brief strong { color: var(--green-dark); }
+  .policy-brief .policy-flow { color: var(--muted); }
+  .policy-brief code {
+    border-radius: 4px;
+    background: #eaf1eb;
+    padding: 1px 4px;
+    font-size: .84em;
+  }
+
+  .demo {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+
+  .demo-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(115deg, #fff, #f8fbf8);
+  }
+
+  .demo-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 760;
+  }
+
+  .demo-subtitle {
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-size: .88rem;
+  }
+
+  .sample-tag {
+    flex: none;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: var(--blue-soft);
+    color: #315a7e;
+    font-size: .77rem;
+    font-weight: 700;
+  }
+
+  .demo-body { padding: 24px; }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 0 0 22px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 42px;
+    color: #8a9890;
+    font-size: .88rem;
+    font-weight: 650;
+  }
+
+  .step-number {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    flex: none;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: #fff;
+    font-size: .78rem;
+  }
+
+  .step.active { color: var(--green-dark); }
+  .step.active .step-number,
+  .step.done .step-number {
+    border-color: #b8ddc3;
+    background: var(--green-soft);
+    color: var(--green-dark);
+  }
+
+  .workspace-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .workspace-label strong { font-size: .93rem; }
+  .workspace-label span { color: var(--muted); font-size: .82rem; }
+
+  .file-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .file {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 64px;
+    padding: 10px 13px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    transition: border-color .18s ease, background .18s ease, opacity .18s ease;
+  }
+
+  .file.candidate {
+    border-color: #ead49b;
+    background: #fffaf0;
+  }
+
+  .file-icon {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    flex: none;
+    place-items: center;
+    border-radius: 10px;
+    background: #f1f4f1;
+    color: #52665a;
+    font-size: .78rem;
+    font-weight: 800;
+  }
+
+  .file.candidate .file-icon {
+    background: var(--amber-soft);
+    color: var(--amber);
+  }
+
+  .file-info { min-width: 0; flex: 1; }
+  .file-name {
+    overflow: hidden;
+    font-size: .91rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-detail {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: .79rem;
+  }
+
+  .file-status {
+    flex: none;
+    color: var(--muted);
+    font-size: .77rem;
+    font-weight: 700;
+  }
+
+  .file.candidate .file-status { color: var(--amber); }
+  .empty { padding: 16px; color: var(--muted); text-align: center; }
+
+  .result {
+    min-height: 48px;
+    margin: 15px 0 0;
+    padding: 12px 14px;
+    border-radius: 11px;
+    background: #f3f6f3;
+    color: #43564a;
+    font-size: .9rem;
+  }
+
+  .result.good {
+    background: var(--green-soft);
+    color: #205d39;
+  }
+
+  .result.warn {
+    background: var(--amber-soft);
+    color: #704b08;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .button {
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    border-radius: 10px;
     cursor: pointer;
+    font-size: .9rem;
+    font-weight: 750;
+    transition: background .15s ease, border-color .15s ease, transform .15s ease;
   }
-  .replay:hover { border-color: var(--accent); }
-  .screen {
-    padding: 18px 20px 22px;
-    min-height: 430px;
-    font-size: 14px;
-    line-height: 1.55;
-    white-space: pre-wrap;
-    word-break: break-word;
+
+  .button:not(:disabled):active { transform: translateY(1px); }
+  .button:disabled { cursor: not-allowed; opacity: .48; }
+  .button.primary { background: var(--green); color: #fff; }
+  .button.primary:not(:disabled):hover { background: var(--green-dark); }
+  .button.secondary {
+    border-color: var(--line);
+    background: #fff;
+    color: #344a3b;
   }
-  .prompt { color: var(--prompt); }
-  .dim { color: var(--dim); }
-  .accent { color: var(--accent); }
-  .ok { color: var(--ok); }
-  .warn { color: var(--warn); }
-  .cursor {
-    display: inline-block;
-    width: 8px;
-    height: 15px;
-    background: var(--fg);
-    vertical-align: -2px;
-    animation: blink 1s steps(1) infinite;
+  .button.secondary:not(:disabled):hover { border-color: #9dc9aa; background: #f8fcf8; }
+  .button.text {
+    background: transparent;
+    color: var(--muted);
   }
-  @keyframes blink { 50% { opacity: 0; } }
+
+  .recycle {
+    display: none;
+    margin-top: 18px;
+    padding: 14px;
+    border: 1px dashed #c7d9cd;
+    border-radius: 12px;
+    background: #f7faf7;
+  }
+
+  .recycle.visible { display: block; }
+  .recycle h2 { margin: 0 0 8px; font-size: .89rem; }
+  .recycle .file-list { gap: 6px; }
+  .recycle .file { min-height: 52px; background: #fff; }
+
+  .next {
+    margin: 18px 2px 0;
+    color: var(--muted);
+    font-size: .89rem;
+  }
+
+  .next a { color: var(--green-dark); font-weight: 700; }
+  .footer {
+    margin-top: 18px;
+    color: #718077;
+    font-size: .78rem;
+  }
+
+  @media (max-width: 600px) {
+    .page { width: min(100% - 22px, 960px); padding: 28px 0 36px; }
+    .demo-head, .demo-body { padding: 17px; }
+    .demo-head { align-items: flex-start; }
+    .sample-tag { max-width: 112px; text-align: center; }
+    .steps { gap: 4px; }
+    .step { align-items: flex-start; flex-direction: column; gap: 5px; font-size: .76rem; }
+    .workspace-label { align-items: flex-start; flex-direction: column; gap: 2px; }
+    .file { gap: 9px; padding: 9px; }
+    .file-status { max-width: 88px; text-align: right; }
+    .actions .button { flex: 1 1 100%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+  }
 </style>
 </head>
 <body>
-<div class="window">
-  <div class="bar">
-    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-    <span class="title">workspace-metabolism — 60-second demo</span>
-    <span class="spacer"></span>
-    <button class="replay" id="replay">replay</button>
-  </div>
-  <div class="screen" id="screen" aria-live="polite"></div>
-</div>
+<main class="page">
+  <div class="eyebrow">Workspace metabolism for AI work</div>
+  <h1>Keep the workspace usable<br>between agent runs.</h1>
+  <p class="intro">One policy says what to keep, what needs approval and what may be recycled. Age and size limits bound cleanup. Recycled files are logged and can be verified and restored during retention. Use it with one agent or share the policy across agents.</p>
+  <div class="safety-note"><span aria-hidden="true">✓</span> Preview only · fictional files · nothing on your computer changes</div>
+
+  <section class="demo" aria-labelledby="demo-title">
+    <header class="demo-head">
+      <div>
+        <h2 class="demo-title" id="demo-title">Leave the next run a useful workspace</h2>
+        <p class="demo-subtitle">Keep useful work · recycle eligible byproducts · restore when needed</p>
+      </div>
+      <span class="sample-tag">Single or shared use</span>
+    </header>
+
+    <div class="demo-body">
+      <ol class="steps" aria-label="Demo steps">
+        <li class="step active" id="step-1"><span class="step-number">1</span><span>Preview the rules</span></li>
+        <li class="step" id="step-2"><span class="step-number">2</span><span>Recycle eligible files</span></li>
+        <li class="step" id="step-3"><span class="step-number">3</span><span>Verify and restore</span></li>
+      </ol>
+
+      <aside class="policy-brief" aria-label="Example cleanup policy">
+        <strong>Example rules · metabolism.json</strong>
+        <span><b>G1 never touch:</b> <code>src/</code> · <b>G2 keep:</b> <code>README.md</code> · <b>G3 ask first:</b> <code>archive/</code> · <b>G4 auto:</b> registered items after 30 idle days.</span>
+        <span class="policy-flow"><b>Limits:</b> skip any single item over 2,560 MB · hold recycled items for 30 days before purge.</span>
+      </aside>
+
+      <div class="workspace-label">
+        <strong>Example workspace files</strong>
+        <span id="workspace-count">6 sample files · not your real files</span>
+      </div>
+      <ul class="file-list" id="workspace-files" aria-label="Example project files"></ul>
+
+      <div class="recycle" id="recycle" aria-live="polite">
+        <h2 id="recycle-title">Recycle area</h2>
+        <ul class="file-list" id="recycle-files" aria-label="Files in the recycle area"></ul>
+      </div>
+
+      <p class="result" id="result" role="status" aria-live="polite">Preview the sample policy to see what stays, what needs approval and what exceeds the limit. Nothing on your computer changes.</p>
+
+      <div class="actions">
+        <button class="button primary" id="check-button" type="button">Preview rules</button>
+        <button class="button primary" id="recycle-button" type="button" disabled>Recycle eligible G4</button>
+        <button class="button primary" id="undo-button" type="button" disabled>Verify and restore</button>
+        <button class="button text" id="reset-button" type="button">Start over</button>
+      </div>
+    </div>
+  </section>
+
+  <p class="next">Want to see the real reversible cleanup on a temporary folder? <a href="https://github.com/metabolism-tools/workspace-metabolism/blob/main/examples/demo.py">Open the runnable demo</a>.</p>
+  <p class="footer">Fictional preview only: this page does not launch agents or clean real files. workspace-metabolism governs cleanup run through its CLI/MCP workflow; it is not an operating-system sandbox and cannot stop an agent from deleting files through another tool.</p>
+</main>
+
 <script>
-const LINE_SPEED = 16;      // ms per character while typing
-const PAUSE_AFTER = 320;    // ms pause after a full line
-const PAUSE_CMD = 620;      // ms pause after a command
+  const maxItemMb = 2560;
+  const files = [
+    { path: "src/main.py", detail: "G1 · never touch", icon: "PY", grade: "G1" },
+    { path: "README.md", detail: "G2 · keep", icon: "MD", grade: "G2" },
+    { path: "archive/decision-notes.md", detail: "G3 · 72 days old · approval required", icon: "MD", grade: "G3", ageDays: 72, sizeMb: 2 },
+    { path: "logs/agent-session.log", detail: "G4 · registered log · 42 days old · 18 MB", icon: "LOG", grade: "G4", ageDays: 42, sizeMb: 18 },
+    { path: ".cache/search-results.json", detail: "G4 · rebuildable cache · 36 days old · 24 MB", icon: "JSON", grade: "G4", ageDays: 36, sizeMb: 24 },
+    { path: "exports/old-bundle.zip", detail: "G4 · registered export · 44 days old · 3.1 GB", icon: "ZIP", grade: "G4", ageDays: 44, sizeMb: 3174 }
+  ];
 
-const script = [
-  [["prompt", "$ "], ["fg", "wm init"]],
-  [["ok", "policy created: metabolism.json"], ["dim", "   (like `git init`, but for file lifecycle)"]],
-  [["dim", "next steps:"]],
-  [["dim", "  wm audit      - first checkup (read-only)"]],
-  [["dim", "  wm health     - workspace health score (0-100)"]],
-  [["dim", "  wm explain <path> - why a path is graded the way it is"]],
-  [],
-  [["prompt", "$ "], ["fg", "wm audit"]],
-  [["fg", "audit done: 0 candidate(s), 0 unregistered"]],
-  [["dim", "report: ~/.cache/workspace-metabolism/reports/2026-08-15.md"]],
-  [["ok", "journal: 1 entries, chain OK"]],
-  [],
-  [["prompt", "$ "], ["fg", "wm health"]],
-  [["fg", "health: 95/100 (A)"]],
-  [["dim", "  auditability: 25/25   governance: 25/25"]],
-  [["dim", "  rot burden: 35/35   recycle readiness: 10/15"]],
-  [["dim", "  candidates: 0   unregistered: 0   journal chain: OK"]],
-  [],
-  [["prompt", "$ "], ["fg", "wm explain logs"]],
-  [["fg", "path: logs"]],
-  [["fg", "policy entry: logs  (G4 / auto)"]],
-  [["fg", "retention: 30 days"]],
-  [["fg", "intent: high-churn byproduct"]],
-  [["fg", "status: not a candidate right now"]],
-  [],
-  [["prompt", "$ "], ["fg", "wm clean --grades G4"]],
-  [["warn", "clean plan (dry-run): 0 item(s), 0.0 MB; blocked 0"]],
-  [["warn", "--yes not given; dry-run only, nothing was moved."]],
-  [],
-  [["prompt", "$ "], ["fg", "wm rollback clean-20260815-140735-123456"]],
-  [["ok", "rollback completed: 8/8"]],
-  [["ok", "  [restored] loops/run00_draft.py"]],
-  [["dim", "SHA-256 verified · byte-for-byte"]],
-];
-
-const screen = document.getElementById("screen");
-
-function span(cls, text) {
-  const el = document.createElement("span");
-  if (cls) el.className = cls;
-  el.textContent = text;
-  return el;
-}
-
-function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
-
-async function typeLine(line, container) {
-  const parts = line.filter((part) => part[1]);
-  if (!parts.length) {
-    await sleep(PAUSE_AFTER);
-    return;
+  function isEligible(file) {
+    return file.grade === "G4" && file.ageDays >= 30 && file.sizeMb <= maxItemMb;
   }
-  for (const [cls, text] of parts) {
-    for (let i = 0; i < text.length; i++) {
-      container.appendChild(span(cls, text[i]));
-      await sleep(LINE_SPEED);
+
+  function statusFor(file) {
+    if (file.grade === "G1") return "Never touch";
+    if (file.grade === "G2") return "Keep";
+    if (file.grade === "G3") return "Needs approval";
+    if (file.sizeMb > maxItemMb) return "Over 2.5 GB cap";
+    return "Eligible · G4";
+  }
+
+  let stage = 0;
+  const workspace = document.getElementById("workspace-files");
+  const recycle = document.getElementById("recycle");
+  const recycleFiles = document.getElementById("recycle-files");
+  const result = document.getElementById("result");
+  const count = document.getElementById("workspace-count");
+  const checkButton = document.getElementById("check-button");
+  const recycleButton = document.getElementById("recycle-button");
+  const undoButton = document.getElementById("undo-button");
+
+  function makeFileRow(file, status, candidate) {
+    const row = document.createElement("li");
+    row.className = "file" + (candidate ? " candidate" : "");
+
+    const icon = document.createElement("span");
+    icon.className = "file-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = file.icon;
+
+    const info = document.createElement("span");
+    info.className = "file-info";
+
+    const name = document.createElement("span");
+    name.className = "file-name";
+    name.textContent = file.path;
+
+    const detail = document.createElement("span");
+    detail.className = "file-detail";
+    detail.textContent = file.detail;
+
+    const label = document.createElement("span");
+    label.className = "file-status";
+    label.textContent = status;
+
+    info.append(name, detail);
+    row.append(icon, info, label);
+    return row;
+  }
+
+  function render() {
+    workspace.replaceChildren();
+    recycleFiles.replaceChildren();
+
+    const isRecycled = stage === 2;
+    const visibleFiles = isRecycled ? files.filter(file => !isEligible(file)) : files;
+    visibleFiles.forEach(file => {
+      const isCandidate = stage === 1 && isEligible(file);
+      const status = stage === 3 && isEligible(file)
+        ? "Restored · verified"
+        : stage === 0
+          ? "Rule not checked"
+          : statusFor(file);
+      workspace.append(makeFileRow(file, status, isCandidate));
+    });
+
+    if (stage === 2) {
+      files.filter(isEligible).forEach(file => {
+        recycleFiles.append(makeFileRow(file, "Sample only", false));
+      });
+      document.getElementById("recycle-title").textContent = "Recycle area · 2 example files";
+      recycle.classList.add("visible");
+      count.textContent = "4 left in place · 2 in the recycle area";
+    } else {
+      recycle.classList.toggle("visible", stage === 3);
+      if (stage === 3) {
+        document.getElementById("recycle-title").textContent = "Recycle area · empty after restore";
+        recycleFiles.innerHTML = '<li class="empty">The example files have been restored.</li>';
+        count.textContent = "6 sample files · all back in place";
+      } else {
+        count.textContent = "6 sample files · not your real files";
+      }
     }
-  }
-  await sleep(PAUSE_AFTER);
-}
 
-async function play() {
-  screen.textContent = "";
-  const cursor = span("cursor", "");
-  screen.appendChild(cursor);
-  await sleep(300);
-  for (const line of script) {
-    if (cursor.parentNode) cursor.remove();
-    const row = document.createElement("div");
-    screen.appendChild(row);
-    await typeLine(line, row);
-    screen.appendChild(cursor);
-    if (line.length && line[0][1].startsWith("$ ")) await sleep(PAUSE_CMD);
-  }
-  cursor.remove();
-  screen.appendChild(span("dim", "\n\nworkspace usable. loops keep running. "));
-  screen.appendChild(span("ok", "✓"));
-}
+    checkButton.disabled = stage !== 0;
+    recycleButton.disabled = stage !== 1;
+    undoButton.disabled = stage !== 2;
 
-document.getElementById("replay").addEventListener("click", play);
-play();
+    document.getElementById("step-1").className = "step" + (stage === 0 ? " active" : " done");
+    document.getElementById("step-2").className = "step" + (stage === 1 ? " active" : stage >= 2 ? " done" : "");
+    document.getElementById("step-3").className = "step" + (stage === 2 ? " active" : stage === 3 ? " done" : "");
+  }
+
+  checkButton.addEventListener("click", () => {
+    stage = 1;
+    result.className = "result warn";
+    result.textContent = "The rules keep G1/G2 files in place, hold the G3 note for approval and skip the 3.1 GB item over the cap. Only 2 registered G4 files meet the 30-day rule; nothing has moved yet.";
+    render();
+  });
+
+  recycleButton.addEventListener("click", () => {
+    stage = 2;
+    result.className = "result good";
+    result.textContent = "Moved only the 2 eligible G4 sample files to the recycle area. The approval-needed note and oversized export stayed put.";
+    render();
+  });
+
+  undoButton.addEventListener("click", () => {
+    stage = 3;
+    result.className = "result good";
+    result.textContent = "Restored both sample files after the integrity check. In a real workspace, wm verifies each file before restoring it.";
+    render();
+  });
+
+  document.getElementById("reset-button").addEventListener("click", () => {
+    stage = 0;
+    result.className = "result";
+    result.textContent = "Preview the sample policy to see what stays, what needs approval and what exceeds the limit. Nothing on your computer changes.";
+    render();
+    checkButton.focus();
+  });
+
+  render();
 </script>
 </body>
 </html>
