@@ -1,8 +1,9 @@
 # workspace-metabolism
 
-MCP server and CLI for governing files left by AI coding agents: policy-driven
-audit, reversible cleanup, rollback, and hash-chained verification. Python
-3.11+, **zero dependencies**, Windows / Linux / macOS.
+MCP server and CLI for workspace metabolism: human-authored lifecycle rules
+keep agent workspaces useful across runs through policy-bounded cleanup,
+verified restore and an auditable history. Python 3.11+, **zero dependencies**,
+Windows / Linux / macOS.
 
 [![PyPI version](https://img.shields.io/pypi/v/workspace-metabolism)](https://pypi.org/project/workspace-metabolism)
 [![Python](https://img.shields.io/pypi/pyversions/workspace-metabolism)](https://pypi.org/project/workspace-metabolism)
@@ -15,7 +16,9 @@ audit, reversible cleanup, rollback, and hash-chained verification. Python
 
 ![workspace health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmetabolism-tools%2Fworkspace-metabolism%2Fmain%2Fdocs%2Fhealth.json)
 
-▶️ Watch the 60-second animated demo: [docs/demo-terminal.html](docs/demo-terminal.html)
+▶️ Watch the [60-second GIF demo](docs/demo-terminal.gif) · try the
+[interactive workspace-metabolism demo](docs/demo-terminal.html) (download it
+and open it in a browser).
 
 ## The problem
 
