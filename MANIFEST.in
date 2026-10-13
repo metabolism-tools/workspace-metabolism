@@ -7,3 +7,7 @@ recursive-include docs *.md *.png
 recursive-include tests *.py
 recursive-include schema *.json
 include tools/summarize_case_evidence.py
+include tools/verify_release.py
+include tools/evaluate_maintenance_cycle.py
+global-exclude *.py[cod]
+global-exclude __pycache__

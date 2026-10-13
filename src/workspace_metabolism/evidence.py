@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 MAX_BYTES = 8 * 1024 * 1024
-ACTIONS = {"audit", "govern", "clean", "rollback", "purge", "slim"}
+ACTIONS = {"audit", "govern", "clean", "rollback", "purge", "slim", "retain", "retain_restore"}
 
 
 def timestamp(value):
@@ -119,6 +119,13 @@ def summarize(path: Path) -> dict:
                 outcome = {"ok": "execution_reported_ok", "dry_run": "preview",
                            "error": "failure_reported", "failed": "failure_reported"}.get(
                                status if isinstance(status, str) else "", "unknown_outcome")
+            elif action == "clean":
+                outcome = {"completed": "recycled_not_reclaimed", "incomplete": "failure_reported"}.get(
+                    str(entry.get("status", "")), "unknown_outcome")
+            elif action in {"rollback", "retain", "retain_restore"}:
+                outcome = {"completed": "execution_reported_ok", "restored": "restoration_reported",
+                           "incomplete": "failure_reported", "no_action_due": "no_action_due",
+                           "preview": "preview"}.get(str(entry.get("status", "")), "unknown_outcome")
             else:
                 outcome = "operation_recorded"
             outcomes[outcome] += 1

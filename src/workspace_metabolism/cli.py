@@ -375,6 +375,14 @@ def main(argv: list[str] | None = None) -> int:
             ]
             for label, ok in checks:
                 print(f"{'OK' if ok else 'FAIL'}: {label}")
+            runtime = result["runtime"]
+            print(f"INFO: WM {runtime['version']}; Python {runtime['python']}; module {runtime['module']}")
+            maintenance = result["maintenance"]
+            print(f"INFO: maintenance evidence {maintenance['state']}")
+            for task in maintenance["tasks"]:
+                print(f"MAINTENANCE: {json.dumps(task, ensure_ascii=False)}")
+            for issue in result["recovery_issues"]:
+                print(f"RECOVERY: {issue['run_id']} ({issue['reason']}); {issue['next']}")
             if result["git_repo"]:
                 print(f"INFO: git repository, {result['git_tracked_files']} tracked file(s)")
             if result["registry_error"]:
@@ -422,7 +430,9 @@ def main(argv: list[str] | None = None) -> int:
                         "NEXT: review above, then run `wm doctor --residue --apply-policy` "
                         "to adopt the suggestions as policy entries"
                     )
-        return 0 if result["root_writable"] and result["state_dir_writable"] and result["registry_valid"] and not result["lock_busy"] else 1
+        maintenance_ok = result["maintenance"]["state"] == "not_declared" or result["maintenance"]["all_recent"]
+        return 0 if (result["root_writable"] and result["state_dir_writable"] and result["registry_valid"]
+                     and not result["lock_busy"] and not result["recovery_issues"] and maintenance_ok) else 1
 
     if args.command in ("audit", "clean", "status", "explain", "health", "govern") and registry_path is None:
         raise SystemExit(
@@ -479,7 +489,7 @@ def main(argv: list[str] | None = None) -> int:
             decision_id=args.decision_id,
         )
     elif args.command == "rollback":
-        rollback(root, state_dir, args.run_id, dry=args.dry_run, operator=operator, decision_id=args.decision_id)
+        return 0 if rollback(root, state_dir, args.run_id, dry=args.dry_run, operator=operator, decision_id=args.decision_id) else 2
     elif args.command == "purge":
         purge(state_dir, older_than_days=args.older_than, yes=args.yes, operator=operator)
     elif args.command == "verify":
@@ -487,8 +497,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"journal: {result['entries']} entries, hash chain {'OK' if result['chain_ok'] else 'BROKEN (seq ' + str(result['broken_at']) + ')'}")
         if result["missing_manifests"]:
             print(f"missing run manifests: {', '.join(result['missing_manifests'])}")
+        for issue in result["recovery_issues"]:
+            print(f"recovery needed: {issue['run_id']} ({issue['reason']}); {issue['next']}")
         for e in result["last"]:
             print(f"  #{e['seq']} [{e['ts']}] {e['action']} operator={e['operator']} run_id={e.get('run_id') or e.get('batches') or '-'}")
+        return 0 if result["chain_ok"] and not result["missing_manifests"] and not result["recovery_issues"] else 2
     elif args.command == "status":
         status(root, registry_path, state_dir)
     elif args.command == "explain":

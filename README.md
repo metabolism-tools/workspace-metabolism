@@ -37,15 +37,19 @@ and `rollback` restores them exactly — and every action lands in a
 **Try it in 30 seconds:**
 
 ```bash
-pip install workspace-metabolism
+python -m pip install https://github.com/metabolism-tools/workspace-metabolism/releases/download/v0.8.0/workspace_metabolism-0.8.0-py3-none-any.whl
 wm doctor --residue                  # what agent byproducts your policy doesn't govern yet
 wm doctor --residue --apply-policy   # adopt the suggestions as policy entries (creates the file if missing)
 wm audit                             # read-only checkup with health score
 ```
 
-**Distribution (v0.7.0):** [GitHub release and installable wheel](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.7.0).
-`retain` requires this GitHub wheel/source; PyPI publication is separate.
-See [v0.7.0 release notes](docs/publish/release-notes-v0.7.0.md) for installation.
+**Distribution (v0.8.0):** [GitHub release and installable wheel](https://github.com/metabolism-tools/workspace-metabolism/releases/tag/v0.8.0).
+GitHub and PyPI publication are verified separately. Use the exact release wheel below.
+See [v0.8.0 release notes](docs/publish/release-notes-v0.8.0.md) for installation.
+The current source is **0.8.0**. To run its recovery and
+maintenance checks from source, clone this release and run `python -m pip install -e .`.
+Use `wm doctor --json` to confirm the version, Python executable and module
+location actually in use. See [upgrade notes](docs/experience-upgrades.md).
 Listed in [awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers) under Developer Tools (merged 2026-09-21).
 See the [Glama tool-definition assessment](https://glama.ai/mcp/servers/metabolism-tools/workspace-metabolism/score)
 for interface quality; it does not establish production reliability or lower supervision.
@@ -83,8 +87,8 @@ AI 编程（Claude Code / Codex / Aider 等）会在工作区留下大量草稿�
 → 清理**。
 
 ```bash
-pip install workspace-metabolism        # 安装（零依赖）
-python examples/demo.py                 # 30 秒演示：盲删 vs 回收+回滚
+python -m pip install https://github.com/metabolism-tools/workspace-metabolism/releases/download/v0.8.0/workspace_metabolism-0.8.0-py3-none-any.whl
+python examples/demo.py                 # 已下载源码时可运行：盲删 vs 回收+回滚
 wm init                                 # 生成策略文件 metabolism.json
 wm audit                                # 只读体检，给文件贴营养标签
 wm clean --grades G4 --yes              # 回收过期项（默认 dry-run，确认后加 --yes）
@@ -196,7 +200,7 @@ of agent-driven software workspaces. Full write-up:
 
 ```bash
 # install the release that includes retain (PyPI is a separate channel)
-pip install https://github.com/metabolism-tools/workspace-metabolism/releases/download/v0.7.0/workspace_metabolism-0.7.0-py3-none-any.whl
+pip install https://github.com/metabolism-tools/workspace-metabolism/releases/download/v0.8.0/workspace_metabolism-0.8.0-py3-none-any.whl
 
 # or run without installing anything:
 #   PYTHONPATH=src python -m workspace_metabolism --help
@@ -226,6 +230,12 @@ auto-discovers `metabolism.json` (or `.wm.json`) in the workspace root, so
 `--registry` is optional. Nothing is cleaned unless it is registered in the
 policy file. Advanced users can start from
 [examples/registry.example.json](examples/registry.example.json).
+
+An executed `clean` that cannot move every planned item exits with an error.
+Its run manifest records both successful moves and failures, so successful
+moves can still be rolled back. The journal separates planned bytes from
+bytes actually moved and records zero reclaimed bytes: recycling does not
+free disk space. `wm evidence` reports these incomplete runs as failures.
 
 ## Commands
 
@@ -267,6 +277,10 @@ and state directory are writable, whether the policy exists and is valid, and
 whether another `wm` operation currently holds the state lock. The lock
 serializes audits, cleanup, rollback and purge so concurrent scheduled or
 agent-triggered runs cannot interleave journal and recycle operations.
+It also reports interrupted recovery batches, the active installation, and
+the freshness and scope of explicitly registered maintenance receipts.
+See [maintenance checks](docs/maintenance-checks.md). Configuration alone does
+not establish that an executor has permission or completed its work.
 
 ### AI governance as code
 
