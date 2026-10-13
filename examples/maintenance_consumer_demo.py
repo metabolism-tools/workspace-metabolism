@@ -28,7 +28,7 @@ def _latest(state):
 
 def run_demo(*, corrupt=False):
     with TemporaryDirectory(prefix="wm-consumer-") as temporary:
-        root = Path(temporary)
+        root = Path(temporary).resolve()
         db, policy, state = root / "data/app.db", root / "metabolism.json", root / "state"
         db.parent.mkdir()
         with closing(sqlite3.connect(db)) as con, con:
