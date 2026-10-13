@@ -351,6 +351,27 @@ def ensure_within_root(root: Path, target: Path, label: str = "path") -> Path:
     return target_resolved
 
 
+def _unlinked_within_root(root: Path, target: Path, label: str) -> Path:
+    """Check original path segments before resolving away a link's identity."""
+    root = root.resolve()
+    try:
+        relative = target.absolute().relative_to(root)
+    except ValueError as exc:
+        raise SystemExit(f"refusing {label} outside workspace") from exc
+    if ".." in relative.parts:
+        raise SystemExit(f"refusing {label} with parent traversal")
+    current = root
+    for part in relative.parts:
+        current = current / part
+        try:
+            linked = _reparse_path(current)
+        except FileNotFoundError:
+            linked = False
+        if linked:
+            raise SystemExit(f"refusing linked {label}: {relative}")
+    return ensure_within_root(root, target, label)
+
+
 @contextlib.contextmanager
 def state_operation_lock(state_dir: Path, operation: str):
     """Best-effort exclusive lock for state-changing operations."""
@@ -639,13 +660,19 @@ def sha256_file(path: Path, chunk: int = 1 << 20) -> str:
 
 
 def item_hashes(target: Path, size: int, files: int) -> tuple[Optional[dict], str]:
-    """Per-file hashes for small/medium targets; size-only for very large ones."""
-    if size > MAX_HASH_MB * 1024 * 1024 or files > MAX_HASH_FILES:
-        return None, "size_only"
+    """Stream every file, including large batches, without loading contents into RAM."""
+    if _reparse_path(target):
+        raise ValueError("symlinks cannot be integrity snapshots")
     if target.is_file():
         return {"": sha256_file(target)}, "sha256"
+    if not target.is_dir():
+        raise ValueError("snapshot target is missing")
     hashes: dict[str, str] = {}
-    for dirpath, _, filenames in os.walk(target):
+    def fail(error):
+        raise error
+    for dirpath, dirnames, filenames in os.walk(target, onerror=fail):
+        if any(_reparse_path(Path(dirpath) / name) for name in dirnames + filenames):
+            raise ValueError("symlinks cannot be integrity snapshots")
         for name in sorted(filenames):
             fp = Path(dirpath) / name
             hashes[fp.relative_to(target).as_posix()] = sha256_file(fp)
@@ -653,19 +680,14 @@ def item_hashes(target: Path, size: int, files: int) -> tuple[Optional[dict], st
 
 
 def verify_hashes(target: Path, hashes: Optional[dict], integrity: str) -> tuple[bool, str]:
-    if integrity == "size_only":
-        return True, "size_only (not per-file verified)"
-    if target.is_file():
-        expected = next(iter((hashes or {}).values())) if hashes else None
-        if expected is None or sha256_file(target) != expected:
-            return False, "hash mismatch"
-        return True, "ok"
-    for rel, expected in (hashes or {}).items():
-        check = target / rel
-        if not check.exists():
-            return False, f"missing: {rel}"
-        if sha256_file(check) != expected:
-            return False, f"hash mismatch: {rel}"
+    if integrity != "sha256" or not isinstance(hashes, dict):
+        return False, "legacy snapshot has no content hashes; manual recovery review required"
+    try:
+        actual, _ = item_hashes(target, 0, 0)
+    except (OSError, ValueError) as exc:
+        return False, str(exc)
+    if actual != hashes:
+        return False, "file inventory or hash mismatch"
     return True, "ok"
 
 
@@ -860,12 +882,59 @@ def journal_append(
     return entry["seq"]
 
 
+def _reparse_path(path: Path) -> bool:
+    """Reject symbolic links and Windows junction/reparse aliases."""
+    import stat
+    return path.is_symlink() or bool(getattr(path.lstat(), "st_file_attributes", 0)
+                                    & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
+
+
+def recovery_issues(state_dir: Path) -> list[dict]:
+    """Find recovery material even when a crash happened before journal append."""
+    issues = []
+    runs = state_dir / "runs"
+    recycle = state_dir / "recycle"
+    manifests = {p.stem: p for p in runs.glob("clean-*.json")}
+    batches = {p.name for p in recycle.iterdir() if p.is_dir()} if recycle.exists() else set()
+    for run_id in sorted(set(manifests) | batches):
+        batch = recycle / run_id
+        if batch.exists() and _reparse_path(batch):
+            issues.append({"run_id": run_id, "reason": "recycle_alias", "next": "manual review; linked batch is protected"})
+            continue
+        path = manifests.get(run_id)
+        if path is None:
+            issues.append({"run_id": run_id, "reason": "orphan_recycle", "next": "manual review; no manifest available"})
+            continue
+        try:
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(manifest, dict) or not isinstance(manifest.get("items"), list):
+                raise ValueError("invalid manifest")
+        except (OSError, ValueError):
+            issues.append({"run_id": run_id, "reason": "unreadable_manifest", "next": "manual review"})
+            continue
+        if manifest.get("status") in {"prepared", "running", "incomplete", "restoring"}:
+            issues.append({"run_id": run_id, "reason": manifest["status"], "next": f"wm rollback {run_id}"})
+        elif (manifest.get("status") not in {"completed", "restored"}
+              or not isinstance(manifest.get("pending", []), list)
+              or manifest.get("pending") and manifest.get("status") != "restored"
+              or any(not isinstance(item, dict) or item.get("integrity") != "sha256"
+                     or not isinstance(item.get("hashes"), dict) for item in manifest["items"])):
+            issues.append({"run_id": run_id, "reason": "manifest_review_required",
+                           "next": f"inspect manifest; wm rollback {run_id} if content hashes are available"})
+    return issues
+
+
+def _save_clean_manifest(path: Path, manifest: dict) -> None:
+    _retain_save(path, json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"))
+
+
 def verify_journal(state_dir: Path) -> dict:
     path = journal_path(state_dir)
-    if not path.exists():
+    recovery = recovery_issues(state_dir)
+    if not path.exists() and not recovery:
         raise SystemExit(f"journal not found: {path}")
     entries: list[dict] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in (path.read_text(encoding="utf-8") if path.exists() else "").splitlines():
         line = line.strip()
         if line:
             entries.append(json.loads(line))
@@ -892,6 +961,7 @@ def verify_journal(state_dir: Path) -> dict:
         "chain_ok": chain_ok,
         "broken_at": broken_at,
         "missing_manifests": missing_manifests,
+        "recovery_issues": recovery,
         "last": entries[-5:],
     }
 
@@ -1353,41 +1423,48 @@ def clean(
         run_id = f"clean-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
         recycle = state_dir / "recycle" / run_id
         runs_dir = state_dir / "runs"
-        manifest = {"run_id": run_id, "ts": now_str(), "items": []}
+        manifest_path = _unlinked_within_root(state_dir, runs_dir / f"{run_id}.json", "run manifest")
+        manifest = {"version": 2, "run_id": run_id, "root": str(root), "ts": now_str(),
+                    "items": [], "pending": [], "errors": [], "status": "prepared",
+                    "planned_bytes": size_todo, "planned_paths": [it["path"] for it in todo]}
+        _save_clean_manifest(manifest_path, manifest)
         moved_ok = 0
         for it in todo:
-            src = ensure_within_root(root, root / it["path"], "clean source")
-            dst = ensure_within_root(recycle, recycle / it["path"], "recycle target")
+            src = _unlinked_within_root(root, root / it["path"], "clean source")
+            dst = _unlinked_within_root(state_dir, recycle / it["path"], "recycle target")
             try:
                 if dst.exists():
                     print(f"  [skip] {it['path']}: target already exists in recycle")
+                    manifest["errors"].append({"path": it["path"], "reason": "destination_exists"})
                     continue
                 if not src.exists():
                     print(f"  [skip] {it['path']}: source missing before move")
+                    manifest["errors"].append({"path": it["path"], "reason": "source_missing"})
                     continue
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 hashes, integrity = item_hashes(src, it["size"], it["files"])
+                record = {key: it[key] for key in ("path", "is_dir", "grade", "cleanup", "size", "files")}
+                record.update(hashes=hashes, integrity=integrity, state="moving")
+                manifest["pending"].append(record)
+                manifest["status"] = "running"
+                _save_clean_manifest(manifest_path, manifest)
                 shutil.move(str(src), str(dst))
+                verified, message = verify_hashes(dst, hashes, integrity)
+                if not verified:
+                    raise ValueError(f"recycle verification failed: {message}")
                 files, size, _ = dir_stats(dst)
-                manifest["items"].append(
-                    {
-                        "path": it["path"],
-                        "is_dir": it["is_dir"],
-                        "grade": it["grade"],
-                        "cleanup": it["cleanup"],
-                        "size": size,
-                        "files": files,
-                        "hashes": hashes,
-                        "integrity": integrity,
-                        "moved_at": now_str(),
-                    }
-                )
+                record.update(size=size, files=files, state="recycled", moved_at=now_str())
+                manifest["items"].append(record)
+                manifest["pending"].remove(record)
+                _save_clean_manifest(manifest_path, manifest)
                 moved_ok += 1
                 print(f"  [recycled] {it['path']} -> {dst}")
             except Exception as exc:  # noqa: BLE001
+                manifest["errors"].append({"path": it["path"], "reason": type(exc).__name__})
                 print(f"  [error] {it['path']}: {exc}")
-        runs_dir.mkdir(parents=True, exist_ok=True)
-        (runs_dir / f"{run_id}.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        manifest["status"] = "incomplete" if manifest["errors"] else "completed"
+        moved_ok = len(manifest["items"])
+        _save_clean_manifest(manifest_path, manifest)
         journal_append(
             state_dir,
             "clean",
@@ -1396,11 +1473,17 @@ def clean(
             run_id=run_id,
             grades=sorted(grades),
             items=moved_ok,
-            size=sum(it["size"] for it in todo),
+            size=sum(it["size"] for it in manifest["items"]),
+            planned_bytes=size_todo,
+            reclaimed_bytes=0,
+            errors=len(manifest["errors"]),
+            status=manifest["status"],
             approver=approver,
             decision_id=decision_id,
         )
-        print(f"done: {moved_ok}/{len(todo)} item(s) moved to recycle. rollback: wm rollback {run_id}")
+        print(f"{manifest['status']}: {moved_ok}/{len(todo)} item(s) moved to recycle. rollback: wm rollback {run_id}")
+        if manifest["errors"]:
+            raise SystemExit(f"clean incomplete: {len(manifest['errors'])} item(s) failed; inspect run {run_id}")
 
 
 def explain(root: Path, registry_path: Path, state_dir: Path, rel_path: str) -> dict:
@@ -1451,34 +1534,54 @@ def explain(root: Path, registry_path: Path, state_dir: Path, rel_path: str) -> 
     return info
 
 
-def rollback(root: Path, state_dir: Path, run_id: str, dry: bool = False, operator: str = "manual", decision_id: Optional[str] = None) -> None:
+def rollback(root: Path, state_dir: Path, run_id: str, dry: bool = False, operator: str = "manual", decision_id: Optional[str] = None) -> bool:
     root = root.resolve()
     state_dir = state_dir.resolve()
+    if not re.fullmatch(r"clean-[A-Za-z0-9_-]+", run_id):
+        raise SystemExit("invalid clean run ID")
     with _claim_operation_lock(root, execute=not dry), state_operation_lock(state_dir, "rollback"):
         claims = _cleanup_claims(root)
-        manifest_path = state_dir / "runs" / f"{run_id}.json"
+        manifest_path = _unlinked_within_root(state_dir, state_dir / "runs" / f"{run_id}.json", "run manifest")
         if not manifest_path.exists():
             raise SystemExit(f"run manifest not found: {manifest_path}")
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("root") and Path(manifest["root"]).resolve() != root:
+            raise SystemExit("run belongs to another workspace; use its original --root")
         recycle = state_dir / "recycle" / run_id
         ok = 0
-        for it in reversed(manifest["items"]):
-            src = ensure_within_root(recycle, recycle / it["path"], "recycle source")
-            dst = ensure_within_root(root, root / it["path"], "restore target")
+        failures = []
+        records = manifest["items"] + manifest.get("pending", [])
+        if not dry:
+            manifest["status"] = "restoring"
+            _save_clean_manifest(manifest_path, manifest)
+        for it in reversed(records):
+            src = _unlinked_within_root(state_dir, recycle / it["path"], "recycle source")
+            dst = _unlinked_within_root(root, root / it["path"], "restore target")
+            if not src.exists() and dst.exists() and it.get("state") in {"moving", "restoring", "restored", "not_moved"}:
+                verified, _ = verify_hashes(dst, it.get("hashes"), it.get("integrity", "size_only"))
+                if verified:
+                    if not dry:
+                        it["state"] = "not_moved" if it["state"] in {"moving", "not_moved"} else "restored"
+                        _save_clean_manifest(manifest_path, manifest)
+                    continue
             reason = claim_cleanup_reason(root, dst.relative_to(root).as_posix(), claims)
             if not reason:
                 reason = claim_cleanup_reason(recycle, src.relative_to(recycle).as_posix(), [])
             if reason:
+                failures.append(it["path"])
                 print(f"  [refused] {it['path']}: {reason}; skipped")
                 continue
             if not src.exists():
+                failures.append(it["path"])
                 print(f"  [missing] {it['path']} not in recycle")
                 continue
             verified, msg = verify_hashes(src, it.get("hashes"), it.get("integrity", "size_only"))
             if not verified:
+                failures.append(it["path"])
                 print(f"  [refused] {it['path']} integrity check failed ({msg}); skipped")
                 continue
             if dst.exists():
+                failures.append(it["path"])
                 print(f"  [refused] {it['path']} already exists at original location; skipped")
                 continue
             if dry:
@@ -1486,12 +1589,31 @@ def rollback(root: Path, state_dir: Path, run_id: str, dry: bool = False, operat
                 ok += 1
                 continue
             dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(src), str(dst))
+            it["state"] = "restoring"
+            _save_clean_manifest(manifest_path, manifest)
+            try:
+                shutil.move(str(src), str(dst))
+            except OSError as exc:
+                failures.append(it["path"])
+                print(f"  [error] {it['path']}: {exc}")
+                continue
+            verified, message = verify_hashes(dst, it.get("hashes"), it.get("integrity", "size_only"))
+            if not verified:
+                failures.append(it["path"])
+                print(f"  [error] {it['path']}: restored content verification failed ({message})")
+                continue
+            it["state"] = "restored"
+            _save_clean_manifest(manifest_path, manifest)
             ok += 1
             print(f"  [restored] {it['path']}")
         if not dry:
-            journal_append(state_dir, "rollback", operator, run_id=run_id, restored=ok, decision_id=decision_id)
-        print(f"rollback {'dry-run' if dry else 'completed'}: {ok}/{len(manifest['items'])}")
+            manifest["status"] = "incomplete" if failures else "restored"
+            manifest["restore_failures"] = failures
+            _save_clean_manifest(manifest_path, manifest)
+            journal_append(state_dir, "rollback", operator, run_id=run_id, restored=ok,
+                           status=manifest["status"], failures=failures, decision_id=decision_id)
+        print(f"rollback {'dry-run' if dry else manifest['status']}: {ok} restored; {len(failures)} unresolved")
+        return not failures
 
 
 def purge(state_dir: Path, older_than_days: int = 30, yes: bool = False, operator: str = "manual") -> None:
@@ -1503,8 +1625,12 @@ def purge(state_dir: Path, older_than_days: int = 30, yes: bool = False, operato
             return
         cutoff = datetime.now().timestamp() - older_than_days * 86400
         candidates: list[tuple[Path, float]] = []
+        unresolved = {item["run_id"] for item in recovery_issues(state_dir)}
         for run_dir in sorted(recycle.iterdir()):
             if not run_dir.is_dir():
+                continue
+            if run_dir.name in unresolved:
+                print(f"  [protected] {run_dir.name}: unresolved recovery; inspect with wm verify")
                 continue
             try:
                 mtime = run_dir.stat().st_mtime
@@ -1525,7 +1651,9 @@ def purge(state_dir: Path, older_than_days: int = 30, yes: bool = False, operato
             return
         for run_dir, _ in candidates:
             resolved = ensure_within_root(recycle, run_dir, "recycle batch")
-            shutil.rmtree(resolved)
+            if _reparse_path(run_dir) or resolved != run_dir.absolute():
+                raise SystemExit(f"purge refuses linked recycle batch: {run_dir.name}")
+            shutil.rmtree(run_dir)
             print(f"  [deleted] {run_dir.name}")
         journal_append(
             state_dir,
@@ -2097,13 +2225,16 @@ def retain(db_path: Path, *, root: Path, registry_path: Path, state_dir: Path,
             elif yes:
                 report["status"] = "no_action_due"
         if yes:
-            journal_append(state_dir, "retain_restore" if restore else "retain", operator,
+            journal_append(state_dir, "retain_restore" if restore else "retain", operator, registry_sha256=policy_sha,
                            **{key: value for key, value in report.items() if key != "action"})
         return report
 
 
 def doctor(root: Path, registry_path: Path | None, state_dir: Path) -> dict:
     """Run a read-only readiness check for the workspace."""
+    import sys
+    from . import __version__
+    from .maintenance_checks import assess_maintenance_tasks
     root = root.resolve()
     state_dir = state_dir.resolve()
     registry = None
@@ -2117,7 +2248,10 @@ def doctor(root: Path, registry_path: Path | None, state_dir: Path) -> dict:
     has_git = (root / ".git").exists()
     tracked = git_tracked_files(root) if has_git else None
     writable = os.access(root, os.W_OK)
-    state_writable = os.access(state_dir.parent if state_dir.exists() else state_dir.parent, os.W_OK)
+    state_parent = state_dir
+    while not state_parent.exists() and state_parent != state_parent.parent:
+        state_parent = state_parent.parent
+    state_writable = os.access(state_parent, os.W_OK)
     lock_path = state_dir / ".wm.lock"
     lock_busy = lock_path.exists()
     missing_registry = registry_path is None
@@ -2151,6 +2285,7 @@ def doctor(root: Path, registry_path: Path | None, state_dir: Path) -> dict:
                 ),
             )
     result = {
+        "runtime": {"version": __version__, "python": sys.executable, "module": str(Path(__file__).resolve())},
         "root": str(root),
         "state_dir": str(state_dir),
         "root_writable": writable,
@@ -2169,7 +2304,10 @@ def doctor(root: Path, registry_path: Path | None, state_dir: Path) -> dict:
         "unregistered": unregistered,
         "sensitive": sensitive,
         "candidates": candidates,
+        "recovery_issues": recovery_issues(state_dir),
     }
+    result["maintenance"] = (assess_maintenance_tasks(root, registry, policy_sha256=sha256_file(registry_path))
+                             if registry is not None else {"state": "not_declared", "tasks": [], "all_recent": False})
     return result
 
 

@@ -253,10 +253,15 @@ def _call_tool(name: str, params: dict, ctx: dict) -> dict:
         buffer = io.StringIO()
         try:
             with contextlib.redirect_stdout(buffer):
-                rollback(root, state_dir, run_id, dry=not execute, operator="agent")
+                completed = rollback(root, state_dir, run_id, dry=not execute, operator="agent")
         except SystemExit as exc:
             return _error(str(exc))
-        return _text_result(buffer.getvalue())
+        return _text_result(buffer.getvalue()) if completed else _error(buffer.getvalue())
+    if name == "wm_verify":
+        result = verify(state_dir)
+        text = json.dumps(result, ensure_ascii=False, indent=2)
+        return (_text_result(text) if result["chain_ok"] and not result["missing_manifests"]
+                and not result["recovery_issues"] else _error(text))
     if registry_path is None and root is not None:
         # Auto-discover the policy if it appeared after the server started (e.g. via wm_init).
         for policy_name in POLICY_FILENAMES:
@@ -317,8 +322,6 @@ def _call_tool(name: str, params: dict, ctx: dict) -> dict:
         except SystemExit as exc:
             return _error(str(exc))
         return _text_result(json.dumps(info, ensure_ascii=False, indent=2))
-    if name == "wm_verify":
-        return _text_result(json.dumps(verify(state_dir), ensure_ascii=False, indent=2))
     if name == "wm_clean":
         grades = {g.strip().upper() for g in str(params.get("grades", "G4")).split(",") if g.strip()}
         execute = bool(params.get("execute", False))

@@ -1,0 +1,40 @@
+name: Verify published distribution
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact published version, without v
+        required: true
+        type: string
+      source:
+        description: Distribution channel
+        required: true
+        default: github
+        type: choice
+        options: [github, pypi]
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify exact published wheel and installed CLI
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          DISTRIBUTION_SOURCE: ${{ inputs.source || 'github' }}
+        run: |
+          version="${REQUESTED_VERSION:-${RELEASE_TAG#v}}"
+          python tools/verify_release.py --version "$version" --source "$DISTRIBUTION_SOURCE"

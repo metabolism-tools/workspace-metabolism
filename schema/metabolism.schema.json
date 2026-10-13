@@ -99,6 +99,58 @@
         }
       }
     },
+    "maintenance_tasks": {
+      "type": "array",
+      "maxItems": 128,
+      "description": "Explicit maintenance executors and receipt locations. Configuration alone never establishes execution, permission or capability; doctor reads evidence without running commands.",
+      "items": {
+        "type": "object",
+        "required": ["id", "scope", "policy_version", "executor", "required_actions", "required_capabilities", "capability_receipt", "execution_receipt", "max_age_seconds"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "scope": {"type": "array", "minItems": 1, "maxItems": 128, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "policy_version": {"type": "string", "minLength": 1},
+          "executor": {
+            "type": "object",
+            "required": ["id", "version", "description", "operation_action"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "version": {"type": "string", "minLength": 1},
+              "description": {"type": "string", "minLength": 1},
+              "operation_action": {"enum": ["clean", "slim", "retain", "rollback", "retain_restore", "purge"]}
+            }
+          },
+          "required_actions": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"enum": ["read", "write", "execute", "delete", "network"]}},
+          "required_capabilities": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "capability_receipt": {"type": "string", "minLength": 1},
+          "execution_receipt": {"type": "string", "minLength": 1},
+          "max_age_seconds": {"type": "integer", "minimum": 1, "maximum": 31622400}
+        }
+      }
+    },
+    "consumer_checks": {
+      "type": "array",
+      "maxItems": 128,
+      "description": "Named explicit consumer commands. Only the built-in read-only SQLite JSON export adapter is supported; doctor does not execute it.",
+      "items": {
+        "type": "object",
+        "required": ["id", "version", "adapter", "adapter_version", "database", "relation", "id_column", "json_column", "fields"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "version": {"type": "string", "minLength": 1},
+          "adapter": {"const": "sqlite_json_export_v1"},
+          "adapter_version": {"const": "1"},
+          "database": {"type": "string", "minLength": 1},
+          "relation": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+          "id_column": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+          "json_column": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+          "fields": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "pattern": "^[^.]+$"}}
+        }
+      }
+    },
     "entries": {
       "type": "array",
       "items": {

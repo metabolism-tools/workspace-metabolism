@@ -205,7 +205,21 @@ def test_cli_doctor_json_does_not_write_audit_artifacts(tmp_path: Path, capsys):
     assert main(["--root", str(root), "--state-dir", str(state), "doctor", "--json"]) == 0
     data = json.loads(capsys.readouterr().out)
     assert data["registry_valid"] is True
+    assert data["runtime"]["version"]
+    assert Path(data["runtime"]["module"]).is_file()
+    assert data["maintenance"]["state"] == "not_declared"
     assert not (state / "journal.jsonl").exists()
+
+
+def test_doctor_rejects_declared_task_without_evidence(tmp_path, capsys):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "metabolism.json").write_text(json.dumps({"version": 1, "entries": [],
+        "maintenance_tasks": [{"id": "nightly"}]}), encoding="utf-8")
+    assert main(["--root", str(root), "--state-dir", str(tmp_path / "state"), "doctor", "--json"]) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["maintenance"]["all_recent"] is False
+    assert not (tmp_path / "state").exists()
 
 
 def test_cli_govern_denies_without_preview(tmp_path: Path, capsys):

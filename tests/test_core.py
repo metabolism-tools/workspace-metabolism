@@ -403,15 +403,15 @@ def test_rollback_refuses_hash_mismatch(env, tmp_path: Path):
     assert recycled_file.exists()
 
 
-def test_size_only_integrity_for_large_items(env, tmp_path: Path, monkeypatch):
-    monkeypatch.setattr(m, "MAX_HASH_MB", 0)  # force the size-only branch
+def test_large_items_always_have_content_hashes(env, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(m, "MAX_HASH_MB", 0)  # the old threshold no longer weakens integrity
     root, state = env
     make_old_dir(root, "cache_g4")
     reg = base_registry(tmp_path)
     m.clean(root, reg, state, {"G4"}, yes=True)
     runs = sorted((state / "runs").glob("clean-*.json"))
     manifest = json.loads(runs[0].read_text(encoding="utf-8"))
-    assert manifest["items"][0]["integrity"] == "size_only"
+    assert manifest["items"][0]["integrity"] == "sha256"
     m.rollback(root, state, runs[0].stem)
     assert (root / "cache_g4").exists()
 
